@@ -7,7 +7,13 @@ import bilby_glitch.interferometer
 import bilby
 import bilby_pipe
 
-from bilby_pipe.utils import logger, get_function_from_string_path, BilbyPipeError, convert_string_to_dict, import_module
+from bilby_pipe.utils import (
+    logger,
+    get_function_from_string_path,
+    BilbyPipeError,
+    convert_string_to_dict,
+    import_module,
+)
 
 
 class GlitchInput(bilby_pipe.input.Input):
@@ -35,7 +41,7 @@ class GlitchInput(bilby_pipe.input.Input):
             raise BilbyPipeError(
                 f"No source model {self._injection_frequency_domain_source_model} found."
             )
-        
+
     @property
     def injection_frequency_domain_source_model(self):
         """String of which frequency domain source model to use"""
@@ -87,7 +93,7 @@ class GlitchInput(bilby_pipe.input.Input):
                         f"For glitch {index_name},\
                         prior file {prior_file} is not available"
                     )
-                
+
     @property
     def joint_prior_defaults(self):
         return getattr(self, "_joint_prior_defaults", dict())
@@ -513,7 +519,6 @@ class GlitchInput(bilby_pipe.input.Input):
                 f"Type {type(waveform_model_kwargs)} not understood for joint waveform generator kwargs."
             )
         self._joint_injection_waveform_generator_model_kwargs = waveform_model_kwargs
-
 
 
 bilby_pipe.input.Input = GlitchInput

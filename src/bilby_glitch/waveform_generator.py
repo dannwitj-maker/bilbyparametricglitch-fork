@@ -1,6 +1,7 @@
 from bilby.gw.waveform_generator import WaveformGenerator
 from bilby.gw.conversion import identity_map_conversion
 
+
 class GlitchWaveformGenerator(WaveformGenerator):
     def __init__(
         self,

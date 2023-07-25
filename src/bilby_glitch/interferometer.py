@@ -5,8 +5,11 @@ import bilby.gw.detector.interferometer
 
 class GlitchInterferometer(bilby.gw.detector.interferometer.Interferometer):
     """Class for the Interferometer, adapted to include glitch modes"""
-    def get_detector_response(self, waveform_polarizations, parameters, frequencies=None):
-        """ Get the detector response for a particular waveform, 
+
+    def get_detector_response(
+        self, waveform_polarizations, parameters, frequencies=None
+    ):
+        """Get the detector response for a particular waveform,
         potentially including glitch modes.
 
         Parameters
@@ -42,27 +45,31 @@ class GlitchInterferometer(bilby.gw.detector.interferometer.Interferometer):
                     signal[mode] = np.zeros(waveform_polarizations[mode].shape)
             else:
                 det_response = self.antenna_response(
-                    parameters['ra'],
-                    parameters['dec'],
-                    parameters['geocent_time'],
-                    parameters['psi'], mode)
+                    parameters["ra"],
+                    parameters["dec"],
+                    parameters["geocent_time"],
+                    parameters["psi"],
+                    mode,
+                )
                 signal[mode] = waveform_polarizations[mode] * det_response
         signal_ifo = sum(signal.values()) * mask
 
         time_shift = self.time_delay_from_geocenter(
-            parameters['ra'], parameters['dec'], parameters['geocent_time'])
+            parameters["ra"], parameters["dec"], parameters["geocent_time"]
+        )
 
         # Be careful to first subtract the two GPS times which are ~1e9 sec.
         # And then add the time_shift which varies at ~1e-5 sec
-        dt_geocent = parameters['geocent_time'] - self.strain_data.start_time
+        dt_geocent = parameters["geocent_time"] - self.strain_data.start_time
         dt = dt_geocent + time_shift
 
         signal_ifo[mask] = signal_ifo[mask] * np.exp(-1j * 2 * np.pi * dt * frequencies)
 
         signal_ifo[mask] *= self.calibration_model.get_calibration_factor(
-            frequencies, prefix='recalib_{}_'.format(self.name), **parameters
+            frequencies, prefix=f"recalib_{self.name}_", **parameters
         )
 
         return signal_ifo
-    
+
+
 bilby.gw.detector.interferometer.Interferometer = GlitchInterferometer
