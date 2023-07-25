@@ -1,0 +1,2 @@
+import bilby_pipe.create_injections
+
