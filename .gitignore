@@ -1,6 +1,6 @@
-src/glitch_bilby/*.egg-info
-src/glitch_bilby/__pycache__/*
-src/glitch_bilby/_version.py
+src/bilby_glitch/*.egg-info
+src/bilby_glitch/__pycache__/*
+src/bilby_glitch/_version.py
 *.egg-info/
 *.egg
 *.pyc
