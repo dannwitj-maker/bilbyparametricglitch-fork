@@ -9,59 +9,61 @@ from .utils import identity_map_conversion
 logger = logging.getLogger(__name__)
 
 
-def slow_scattering(f,
-                    geocent_time=0,
-                    f_harm0=30,
-                    f_mod0=0.5,
-                    phi0=0,
-                    amp0=1e-21,
-                    delta_gc_t1=0,
-                    delta_f_mod1=0,
-                    delta_f_harm1=0,
-                    phi1=0,
-                    amp1=0,
-                    delta_gc_t2=0,
-                    delta_f_mod2=0,
-                    delta_f_harm2=0,
-                    phi2=0,
-                    amp2=0,
-                    delta_gc_t3=0,
-                    delta_f_mod3=0,
-                    delta_f_harm3=0,
-                    phi3=0,
-                    amp3=0,
-                    delta_gc_t4=0,
-                    delta_f_mod4=0,
-                    delta_f_harm4=0,
-                    phi4=0,
-                    amp4=0,
-                    delta_gc_t5=0,
-                    delta_f_mod5=0,
-                    delta_f_harm5=0,
-                    phi5=0,
-                    amp5=0,
-                    delta_gc_t6=0,
-                    delta_f_mod6=0,
-                    delta_f_harm6=0,
-                    phi6=0,
-                    amp6=0,
-                    delta_gc_t7=0,
-                    delta_f_mod7=0,
-                    delta_f_harm7=0,
-                    phi7=0,
-                    amp7=0,
-                    delta_gc_t8=0,
-                    delta_f_mod8=0,
-                    delta_f_harm8=0,
-                    phi8=0,
-                    amp8=0,
-                    delta_gc_t9=0,
-                    delta_f_mod9=0,
-                    delta_f_harm9=0,
-                    phi9=0,
-                    amp9=0,
-                    f_diff=25,
-                    **kwargs):
+def slow_scattering(
+    f,
+    geocent_time=0,
+    f_harm0=30,
+    f_mod0=0.5,
+    phi0=0,
+    amp0=1e-21,
+    delta_gc_t1=0,
+    delta_f_mod1=0,
+    delta_f_harm1=0,
+    phi1=0,
+    amp1=0,
+    delta_gc_t2=0,
+    delta_f_mod2=0,
+    delta_f_harm2=0,
+    phi2=0,
+    amp2=0,
+    delta_gc_t3=0,
+    delta_f_mod3=0,
+    delta_f_harm3=0,
+    phi3=0,
+    amp3=0,
+    delta_gc_t4=0,
+    delta_f_mod4=0,
+    delta_f_harm4=0,
+    phi4=0,
+    amp4=0,
+    delta_gc_t5=0,
+    delta_f_mod5=0,
+    delta_f_harm5=0,
+    phi5=0,
+    amp5=0,
+    delta_gc_t6=0,
+    delta_f_mod6=0,
+    delta_f_harm6=0,
+    phi6=0,
+    amp6=0,
+    delta_gc_t7=0,
+    delta_f_mod7=0,
+    delta_f_harm7=0,
+    phi7=0,
+    amp7=0,
+    delta_gc_t8=0,
+    delta_f_mod8=0,
+    delta_f_harm8=0,
+    phi8=0,
+    amp8=0,
+    delta_gc_t9=0,
+    delta_f_mod9=0,
+    delta_f_harm9=0,
+    phi9=0,
+    amp9=0,
+    f_diff=25,
+    **kwargs,
+):
     """
     Returns frequency domain strain associated with a set of slow scattering arches
 
@@ -112,12 +114,12 @@ def slow_scattering(f,
     if not kwargs.keys():
         n_harmonics = 1
     else:
-        n_harmonics = kwargs['number_harmonics']
+        n_harmonics = kwargs["number_harmonics"]
 
     # get kwargs, setup ifo delay for geocent time injection purposes
-    duration = kwargs['duration']
-    sampling_frequency = kwargs['sampling_frequency']
-    segment_start_time = kwargs['start_time']
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
 
     time_to_rotate_base = -duration / 2
     # bilby assumes that the segment starts at start time and rotates accordingly
@@ -125,12 +127,12 @@ def slow_scattering(f,
     # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
 
     # default False for centered arches, for robustness
-    if 'centered_arches' not in kwargs.keys():
-        kwargs['centered_arches'] = False
+    if "centered_arches" not in kwargs.keys():
+        kwargs["centered_arches"] = False
 
     # if possible preload array
-    if 'time_array' in kwargs.keys():
-        t = kwargs['time_array']
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
         if t[0] != 0:
             t -= segment_start_time
     else:
@@ -140,7 +142,9 @@ def slow_scattering(f,
     # get hoft of 0th arch
     # note - generates initially in the center of the time array, to prevent weirdness with the window
     # this will get shifted appropriately later
-    hoft_temp = amp0 * np.sin((f_harm0 / f_mod0) * np.sin(2 * np.pi * f_mod0 * (t - duration / 2)) + phi0)
+    hoft_temp = amp0 * np.sin(
+        (f_harm0 / f_mod0) * np.sin(2 * np.pi * f_mod0 * (t - duration / 2)) + phi0
+    )
 
     # determine and apply window, centered on duration / 2
     # This window is necessary because our equation describes an infinite set of arches
@@ -156,23 +160,25 @@ def slow_scattering(f,
     hoft_temp[~outside_window_mask] = 0
 
     # FFT and timeshift only if arches aren't centered, else do it at the end
-    if kwargs['centered_arches']:
+    if kwargs["centered_arches"]:
         hoft = hoft_temp
     else:
         # FFT
         htilde_temp = nfft(hoft_temp, sampling_frequency)
 
         # A time shift - first, to the beginning / end of the data segment, then backwards to the ifo_time
-        htilde_shifted = htilde_temp[0] * np.exp(-2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base))
+        htilde_shifted = htilde_temp[0] * np.exp(
+            -2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base)
+        )
         htilde = htilde_shifted
 
     for harmonic_idx in range(1, n_harmonics):
         # fetch variables by index
-        temp_amp = locals()['amp{}'.format(harmonic_idx)]
-        temp_phi = locals()['phi{}'.format(harmonic_idx)]
-        temp_delta_gc_t = locals()['delta_gc_t{}'.format(harmonic_idx)]
-        temp_delta_f_mod = locals()['delta_f_mod{}'.format(harmonic_idx)]
-        temp_delta_f_harm = locals()['delta_f_harm{}'.format(harmonic_idx)]
+        temp_amp = locals()[f"amp{harmonic_idx}"]
+        temp_phi = locals()[f"phi{harmonic_idx}"]
+        temp_delta_gc_t = locals()[f"delta_gc_t{harmonic_idx}"]
+        temp_delta_f_mod = locals()[f"delta_f_mod{harmonic_idx}"]
+        temp_delta_f_harm = locals()[f"delta_f_harm{harmonic_idx}"]
 
         # make temporary variables
         temp_time_to_rotate = time_to_rotate_base + temp_delta_gc_t
@@ -180,9 +186,11 @@ def slow_scattering(f,
         temp_f_harm = f_harm0 + harmonic_idx * f_diff + temp_delta_f_harm
 
         # get hoft for this arch
-        hoft_temp = temp_amp * np.sin((temp_f_harm / temp_f_mod)
-                                      * np.sin(2 * np.pi * temp_f_mod * (t - duration / 2))
-                                      + temp_phi)
+        hoft_temp = temp_amp * np.sin(
+            (temp_f_harm / temp_f_mod)
+            * np.sin(2 * np.pi * temp_f_mod * (t - duration / 2))
+            + temp_phi
+        )
 
         # make and apply the window for this arch
         window_low = duration / 2 - 0.25 / temp_f_mod
@@ -195,31 +203,46 @@ def slow_scattering(f,
         hoft_temp[~outside_window_mask] = 0
 
         # same FFT procedure
-        if kwargs['centered_arches']:
+        if kwargs["centered_arches"]:
             hoft += hoft_temp
         else:
             htilde_temp = nfft(hoft_temp, sampling_frequency)
-            htilde_shifted = htilde_temp[0] * np.exp(-2 * np.pi * 1j * htilde_temp[1] * (temp_time_to_rotate))
+            htilde_shifted = htilde_temp[0] * np.exp(
+                -2 * np.pi * 1j * htilde_temp[1] * (temp_time_to_rotate)
+            )
             htilde += htilde_shifted
 
     # same FFT procedure, in this case applied to all arches at once
-    if kwargs['centered_arches']:
+    if kwargs["centered_arches"]:
         htilde_temp = nfft(hoft, sampling_frequency)
-        htilde_shifted = htilde_temp[0] * np.exp(-2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base))
+        htilde_shifted = htilde_temp[0] * np.exp(
+            -2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base)
+        )
         htilde = htilde_shifted
 
-    return {kwargs["glitch_mode_name"]: htilde, 'plus': htilde * 0, 'cross': htilde * 0}
+    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
 
 
 class GlitchWaveformGenerator(WaveformGenerator):
-    def __init__(self, glitch_index_name, glitch_interferometer, duration,
-                 sampling_frequency, start_time=0, frequency_domain_source_model=None,
-                 parameters=None, parameter_conversion=None, waveform_arguments={}):
+    def __init__(
+        self,
+        glitch_index_name,
+        glitch_interferometer,
+        duration,
+        sampling_frequency,
+        start_time=0,
+        frequency_domain_source_model=None,
+        parameters=None,
+        parameter_conversion=None,
+        waveform_arguments={},
+    ):
 
         waveform_arguments["duration"] = duration
         waveform_arguments["sampling_frequency"] = sampling_frequency
         waveform_arguments["start_time"] = start_time
-        waveform_arguments["glitch_mode_name"] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
+        waveform_arguments[
+            "glitch_mode_name"
+        ] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
         if parameter_conversion is None:
             parameter_conversion = identity_map_conversion
         super(GlitchWaveformGenerator, self).__init__(
@@ -229,11 +252,11 @@ class GlitchWaveformGenerator(WaveformGenerator):
             frequency_domain_source_model=frequency_domain_source_model,
             parameters=parameters,
             parameter_conversion=parameter_conversion,
-            waveform_arguments=waveform_arguments
+            waveform_arguments=waveform_arguments,
         )
         self.waveform_arguments["time_array"] = self.time_array
 
 
 def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
     """A placeholder for when no CBC is passed to a joint analysis"""
-    return {'plus': np.zeros(f.shape), 'cross': np.zeros(f.shape)}
+    return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}

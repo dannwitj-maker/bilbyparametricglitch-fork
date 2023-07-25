@@ -1,5 +1,12 @@
 from bilby.core.utils import logger
-from bilby.gw.conversion import fill_from_fixed_priors, compute_per_detector_log_likelihoods, generate_posterior_samples_from_marginalized_likelihood, MarginalizedLikelihoodReconstructionError, compute_snrs
+from bilby.gw.conversion import (
+    fill_from_fixed_priors,
+    compute_per_detector_log_likelihoods,
+    generate_posterior_samples_from_marginalized_likelihood,
+    MarginalizedLikelihoodReconstructionError,
+    compute_snrs,
+)
+
 
 def identity_map_conversion(parameters):
     """An identity map on the parameters, doing what bilby says it does already"""
@@ -30,13 +37,17 @@ def identity_map_generation(sample, likelihood=None, priors=None, npool=1):
 
     if likelihood is not None:
         compute_per_detector_log_likelihoods(
-            samples=output_sample, likelihood=likelihood, npool=npool)
+            samples=output_sample, likelihood=likelihood, npool=npool
+        )
 
-        marginalized_parameters = getattr(likelihood, "_marginalized_parameters", list())
+        marginalized_parameters = getattr(
+            likelihood, "_marginalized_parameters", list()
+        )
         if len(marginalized_parameters) > 0:
             try:
                 generate_posterior_samples_from_marginalized_likelihood(
-                    samples=output_sample, likelihood=likelihood, npool=npool)
+                    samples=output_sample, likelihood=likelihood, npool=npool
+                )
             except MarginalizedLikelihoodReconstructionError as e:
                 logger.warning(
                     "Marginalised parameter reconstruction failed with message "
