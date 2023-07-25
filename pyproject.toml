@@ -1,0 +1,33 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "setuptools_scm[toml]>=3.4.3",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/bilby_glitch/_version.py"
+
+
+[project]
+name = "bilby_glitch"
+authors = [
+  { name="Rhiannon Udall", email="rhiannon.udall@ligo.org" },
+]
+description = "An addon package for bilby to allow inference of parametrically modeled glitches"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bilby_glitch._version.__version__"}
+
+[project.urls]
+"Homepage" = "https://git.ligo.org/rhiannon.udall/bilby_glitch"
+"Bug Tracker" = "https://git.ligo.org/rhiannon.udall/bilby_glitch/-/issues"
