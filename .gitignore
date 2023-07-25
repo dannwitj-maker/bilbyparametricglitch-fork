@@ -1,0 +1,11 @@
+src/glitch_bilby/*.egg-info
+src/glitch_bilby/__pycache__/*
+src/glitch_bilby/_version.py
+*.egg-info/
+*.egg
+*.pyc
+__pycache__
+build/
+docs/_build/*
+docs/source/api/*
+dist/*

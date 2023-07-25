@@ -1,0 +1,16 @@
+include:
+  - project: computing/gitlab-ci-templates
+    file:
+      - python.yml
+
+stages:
+  - initial
+
+precommit:
+  stage: initial
+  extends:
+    - .python:base
+  script:
+    - pip install pre-commit
+    - pre-commit run --all-files --verbose --show-diff-on-failure
+
