@@ -1,32 +1,21 @@
 import sys
 
-from bilby_pipe.utils import logger, parse_args, log_version_information
-from bilby_pipe.data_generation import (
-    get_geocent_time_with_uncertainty,
-    strain_spectrogram_plot,
-    create_generation_parser,
-    DataGenerationInput,
-)
-
 from .overwrite_utils import uncache
 
-import bilby_glitch.conversion
-import bilby_glitch.interferometer
-import bilby_glitch.pipe_parser
-import bilby_glitch.pipe_input
+from bilby_glitch.conversion import glitch_compute_snrs
+from bilby_glitch.interferometer import GlitchInterferometer
+from bilby_glitch.pipe_parser import glitch_create_parser
+from bilby_glitch.pipe_input import GlitchInput
 
 import bilby.gw.conversion
 import bilby.gw.detector.interferometer
 import bilby_pipe.parser
 import bilby_pipe.input
-import bilby_pipe.data_generation
 
-bilby.gw.conversion.compute_snrs = bilby_glitch.conversion.glitch_compute_snrs
-bilby.gw.detector.interferometer.Interferometer = (
-    bilby_glitch.interferometer.GlitchInterferometer
-)
-bilby_pipe.parser.create_parser = bilby_glitch.pipe_parser.glitch_create_parser
-bilby_pipe.input.Input = bilby_glitch.pipe_input.GlitchInput
+bilby.gw.conversion.compute_snrs = glitch_compute_snrs
+bilby.gw.detector.interferometer.Interferometer = GlitchInterferometer
+bilby_pipe.parser.create_parser = glitch_create_parser
+bilby_pipe.input.Input = GlitchInput
 
 uncache(
     [
@@ -35,6 +24,14 @@ uncache(
         "bilby_pipe.parser",
         "bilby_pipe.input",
     ]
+)
+
+from bilby_pipe.utils import logger, parse_args, log_version_information
+from bilby_pipe.data_generation import (
+    get_geocent_time_with_uncertainty,
+    strain_spectrogram_plot,
+    create_generation_parser,
+    DataGenerationInput,
 )
 
 
@@ -321,7 +318,7 @@ class GlitchDataGenerationInput(DataGenerationInput):
         return signal_and_data
 
 
-bilby_pipe.data_generation.DataGenerationInput = GlitchDataGenerationInput
+# bilby_pipe.data_generation.DataGenerationInput = GlitchDataGenerationInput
 
 
 def main():

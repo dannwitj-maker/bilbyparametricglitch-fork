@@ -1,12 +1,9 @@
 import os
 import inspect
+import copy
 
-import bilby_glitch.conversion
-import bilby_glitch.interferometer
-import bilby_glitch.pipe_parser
-
-import bilby
-import bilby_pipe
+from bilby_pipe.input import Input
+import bilby.gw.source
 
 from bilby_pipe.utils import (
     logger,
@@ -17,7 +14,7 @@ from bilby_pipe.utils import (
 )
 
 
-class GlitchInput(bilby_pipe.input.Input):
+class GlitchInput(Input):
     """Superclass of input handlers - with glitch additions"""
 
     @property
@@ -182,7 +179,7 @@ class GlitchInput(bilby_pipe.input.Input):
 
     @property
     def likelihood(self):
-        self.search_priors = self.priors.copy()
+        self.search_priors = copy.deepcopy(self.priors)
 
         likelihood_kwargs = dict(
             interferometers=self.interferometers,
@@ -520,6 +517,3 @@ class GlitchInput(bilby_pipe.input.Input):
                 f"Type {type(waveform_model_kwargs)} not understood for joint waveform generator kwargs."
             )
         self._joint_injection_waveform_generator_model_kwargs = waveform_model_kwargs
-
-
-bilby_pipe.input.Input = GlitchInput
