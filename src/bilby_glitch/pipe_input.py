@@ -179,7 +179,7 @@ class GlitchInput(Input):
 
     @property
     def likelihood(self):
-        self.search_priors = copy.deepcopy(self.priors)
+        self.search_priors = self.priors.copy()
 
         likelihood_kwargs = dict(
             interferometers=self.interferometers,

@@ -9,7 +9,7 @@ warnings.simplefilter("ignore", np.ComplexWarning)
 logger = logging.getLogger(__name__)
 
 from bilby.gw.likelihood.base import GravitationalWaveTransient
-from bilb.gw.detector import get_empty_interferometer, Interferometer
+from bilby.gw.detector import get_empty_interferometer, Interferometer
 from .glitch_models import _blank_frequency_domain_source_model
 
 
