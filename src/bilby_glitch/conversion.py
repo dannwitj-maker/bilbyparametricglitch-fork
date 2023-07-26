@@ -114,6 +114,3 @@ def glitch_compute_snrs(sample, likelihood, npool=1):
 
     else:
         logger.debug("Not computing SNRs.")
-
-
-bilby.gw.conversion.compute_snrs = glitch_compute_snrs

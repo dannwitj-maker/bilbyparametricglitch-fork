@@ -3,6 +3,7 @@ import inspect
 
 import bilby_glitch.conversion
 import bilby_glitch.interferometer
+import bilby_glitch.pipe_parser
 
 import bilby
 import bilby_pipe

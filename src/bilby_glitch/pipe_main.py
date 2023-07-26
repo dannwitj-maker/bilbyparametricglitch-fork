@@ -2,13 +2,17 @@ import os
 import sys
 import json
 import importlib
+import pandas as pd
+import numpy as np
 
-import bilby_glitch.conversion
-import bilby_glitch.interferometer
-import bilby_glitch.pipe_nodes
+from .overwrite_utils import uncache
 
-import bilby
-import bilby_pipe
+import bilby_pipe.parser
+import bilby_pipe.create_injections
+import bilby_pipe.main
+
+from .pipe_parser import glitch_create_parser
+from .pipe_create_injections import glitch_create_injection_file, GlitchInjectionCreator
 
 from bilby_pipe.utils import (
     logger,
@@ -19,20 +23,27 @@ from bilby_pipe.utils import (
     get_outdir_name,
     tcolors,
 )
-from bilby_pipe.main import create_parser, write_complete_config_file, generate_dag
+from bilby_pipe.main import (
+    create_parser,
+    generate_dag,
+)
+
+bilby_pipe.parser.create_parser = glitch_create_parser
+bilby_pipe.create_injections.InjectionCreator = GlitchInjectionCreator
+bilby_pipe.create_injections.create_injection_file = glitch_create_injection_file
+uncache(["bilby_pipe.parser", "bilby_pipe.create_injections"])
 
 
 class GlitchMainInput(bilby_pipe.main.MainInput):
     """An object to hold all the inputs to bilby_pipe"""
 
     def __init__(self, args, unknown_args, perform_checks=True):
-        super().__init__(args, unknown_args, perform_checks=perform_checks)
-
         self.likelihood_is_joint = args.likelihood_is_joint
 
         if self.likelihood_is_joint:
             self.joint_prior_files = args.joint_prior_files
             self.joint_prior_defaults = args.joint_prior_defaults
+        super().__init__(args, unknown_args, perform_checks=perform_checks)
 
     def check_injection(self):
         """Check injection behaviour
@@ -75,7 +86,7 @@ class GlitchMainInput(bilby_pipe.main.MainInput):
             else:
                 trigger_time_injections = self.trigger_time
 
-            bilby_pipe.create_injections.create_injection_file(
+            glitch_create_injection_file(
                 filename=default_injection_file_name,
                 prior_file=self.prior_file,
                 prior_dict=self.prior_dict,
@@ -110,12 +121,73 @@ class GlitchMainInput(bilby_pipe.main.MainInput):
             )
 
 
+def write_complete_config_file(parser, args, inputs, input_cls=GlitchMainInput):
+    args_dict = vars(args).copy()
+    for key, val in args_dict.items():
+        if key == "label":
+            continue
+        if isinstance(val, str):
+            if os.path.isfile(val) or os.path.isdir(val):
+                setattr(args, key, os.path.abspath(val))
+        if isinstance(val, list):
+            if len(val) == 0:
+                setattr(args, key, "[]")
+            elif isinstance(val[0], str):
+                setattr(args, key, f"[{', '.join(val)}]")
+    args.sampler_kwargs = str(inputs.sampler_kwargs)
+    args.submit = False
+    parser.write_to_file(
+        filename=inputs.complete_ini_file,
+        args=args,
+        overwrite=False,
+        include_description=False,
+    )
+
+    # Verify that the written complete config is identical to the source config
+    complete_args = parser.parse([inputs.complete_ini_file])
+    complete_inputs = input_cls(complete_args, "", perform_checks=False)
+    ignore_keys = ["scheduler_module", "submit"]
+    differences = []
+    for key, val in inputs.__dict__.items():
+        if key in ignore_keys:
+            continue
+        if key not in complete_args:
+            continue
+        if isinstance(val, pd.DataFrame) and all(val == complete_inputs.__dict__[key]):
+            continue
+        if isinstance(val, np.ndarray) and all(
+            np.array(val) == np.array(complete_inputs.__dict__[key])
+        ):
+            continue
+        if isinstance(val, str) and os.path.isfile(val):
+            # Check if it is relpath vs abspath
+            if os.path.abspath(val) == os.path.abspath(complete_inputs.__dict__[key]):
+                continue
+        if val == complete_inputs.__dict__[key]:
+            continue
+
+        differences.append(key)
+
+    if len(differences) > 0:
+        for key in differences:
+            print(key, f"{inputs.__dict__[key]} -> {complete_inputs.__dict__[key]}")
+        raise BilbyPipeError(
+            "The written config file {} differs from the source {} in {}".format(
+                inputs.ini, inputs.complete_ini_file, differences
+            )
+        )
+    else:
+        logger.info(f"To see full configuration, check {inputs.complete_ini_file}")
+
+
 bilby_pipe.main.MainInput = GlitchMainInput
+bilby_pipe.main.write_complete_config_file = write_complete_config_file
+uncache(["bilby_pipe.main"])
 
 
 def main():
     """Top-level interface for bilby_pipe"""
-    parser = create_parser(top_level=True)
+    parser = glitch_create_parser(top_level=True)
     args, unknown_args = parse_args(get_command_line_arguments(), parser)
 
     if args.analysis_executable_parser is not None:

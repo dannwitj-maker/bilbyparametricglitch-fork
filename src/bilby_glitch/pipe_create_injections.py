@@ -2,6 +2,7 @@ import sys
 
 import bilby_glitch.conversion
 import bilby_glitch.interferometer
+import bilby_glitch.pipe_parser
 
 import bilby
 import bilby_pipe
@@ -86,7 +87,7 @@ def glitch_create_injection_file(
     enforce_signal_duration=False,
     joint_prior_files=None,
 ):
-    """Makes injection file using arguments from the namespace args parameter"""
+    """Makes injection file using arguments from the namespace args parameter - with modifications for glitch use"""
     injection_creator = GlitchInjectionCreator(
         prior_file=prior_file,
         prior_dict=prior_dict,

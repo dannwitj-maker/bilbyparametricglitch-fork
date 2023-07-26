@@ -14,7 +14,7 @@ from bilby_pipe.main import __doc__ as usage
 
 
 def glitch_create_parser(top_level=True):
-    """Creates the BilbyArgParser for bilby_pipe
+    """Creates the BilbyArgParser for bilby_pipe - with glitch modifications
 
     Parameters
     ----------
@@ -1277,6 +1277,3 @@ def glitch_create_parser(top_level=True):
         help="A dictionary of extra arguments to pass to the waveform generator call",
     )
     return parser
-
-
-bilby_pipe.parser.create_parser = glitch_create_parser

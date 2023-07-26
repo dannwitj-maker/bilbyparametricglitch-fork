@@ -70,6 +70,3 @@ class GlitchInterferometer(bilby.gw.detector.interferometer.Interferometer):
         )
 
         return signal_ifo
-
-
-bilby.gw.detector.interferometer.Interferometer = GlitchInterferometer
