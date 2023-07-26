@@ -7,17 +7,6 @@ import glob
 
 from .overwrite_utils import uncache
 
-import bilby.gw.conversion
-import bilby.gw.detector.interferometer
-
-from bilby_glitch.conversion import glitch_compute_snrs
-from bilby_glitch.interferometer import GlitchInterferometer
-
-bilby.gw.conversion.compute_snrs = glitch_compute_snrs
-bilby.gw.detector.interferometer.Interferometer = GlitchInterferometer
-
-uncache["bilby.gw.conversion", "bilby.gw.detector.interferometer"]
-
 import bilby
 
 from bilby.gw.detector import PowerSpectralDensity, calibration
@@ -30,9 +19,9 @@ from bilby_pipe.utils import (
     get_version_information,
     convert_string_to_dict,
     BilbyPipeError,
-    DataDump,
     is_a_power_of_2,
     get_geocent_time_with_uncertainty,
+    DataDump,
 )
 
 from .pipe_input import GlitchInput
@@ -1475,7 +1464,7 @@ class GlitchDataGenerationInput(GlitchInput):
 
 def main():
     """Data generation main logic"""
-    args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser())
+    args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser(top_level=False))
     log_version_information()
     data = GlitchDataGenerationInput(args, unknown_args)
     if args.likelihood_type == "ROQGravitationalWaveTransient":

@@ -16,10 +16,9 @@ from bilby_pipe.utils import (
     get_colored_string,
     request_memory_generation_lookup,
 )
-from .overwrite_utils import uncache
 
 from .pipe_parser import glitch_create_parser
-from .pipe_create_injections import glitch_create_injection_file, GlitchInjectionCreator
+from .pipe_create_injections import glitch_create_injection_file
 from .pipe_job_creation import generate_dag
 from .pipe_input import GlitchInput
 
