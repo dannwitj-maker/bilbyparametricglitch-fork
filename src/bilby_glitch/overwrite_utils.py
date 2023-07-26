@@ -8,6 +8,8 @@ def uncache(exclude):
     Args:
         exclude (iter<str>): Sequence of module paths.
     """
+    # A ridiculous hack
+    # Courtesy of https://medium.com/@chipiga86/python-monkey-patching-like-a-boss-87d7ddb8098e
     pkgs = []
     for mod in exclude:
         pkg = mod.split(".", 1)[0]

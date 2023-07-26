@@ -1,21 +1,44 @@
 import sys
 
-import bilby_glitch.conversion
-import bilby_glitch.interferometer
-import bilby_glitch.pipe_parser
-
-import bilby
-import bilby_pipe
-
 from bilby_pipe.utils import logger, parse_args, log_version_information
 from bilby_pipe.data_generation import (
     get_geocent_time_with_uncertainty,
     strain_spectrogram_plot,
     create_generation_parser,
+    DataGenerationInput,
+)
+
+from .overwrite_utils import uncache
+
+import bilby_glitch.conversion
+import bilby_glitch.interferometer
+import bilby_glitch.pipe_parser
+import bilby_glitch.pipe_input
+
+import bilby.gw.conversion
+import bilby.gw.detector.interferometer
+import bilby_pipe.parser
+import bilby_pipe.input
+import bilby_pipe.data_generation
+
+bilby.gw.conversion.compute_snrs = bilby_glitch.conversion.glitch_compute_snrs
+bilby.gw.detector.interferometer.Interferometer = (
+    bilby_glitch.interferometer.GlitchInterferometer
+)
+bilby_pipe.parser.create_parser = bilby_glitch.pipe_parser.glitch_create_parser
+bilby_pipe.input.Input = bilby_glitch.pipe_input.GlitchInput
+
+uncache(
+    [
+        "bilby.gw.conversion",
+        "bilby.gw.detector.interferometer",
+        "bilby_pipe.parser",
+        "bilby_pipe.input",
+    ]
 )
 
 
-class GlitchDataGenerationInput(bilby_pipe.data_generation.DataGenerationInput):
+class GlitchDataGenerationInput(DataGenerationInput):
     """Handles user-input for the data generation script - with modifications for
 
     Parameters
@@ -29,8 +52,6 @@ class GlitchDataGenerationInput(bilby_pipe.data_generation.DataGenerationInput):
     """
 
     def __init__(self, args, unknown_args, create_data=True):
-        super().__init__(args, unknown_args, create_data=create_data)
-
         # Check whether to do joint conditionals
         self.likelihood_is_joint = args.likelihood_is_joint
         self.injection_is_joint = args.injection_is_joint
@@ -109,6 +130,8 @@ class GlitchDataGenerationInput(bilby_pipe.data_generation.DataGenerationInput):
                 )
 
         self.extra_waveform_generator_kwargs = args.extra_waveform_generator_kwargs
+
+        super().__init__(args, unknown_args, create_data=create_data)
 
     def _set_interferometers_from_injection_in_gaussian_noise(self):
         """Method to generate the interferometers data from an injection in Gaussian noise"""
@@ -298,7 +321,7 @@ class GlitchDataGenerationInput(bilby_pipe.data_generation.DataGenerationInput):
         return signal_and_data
 
 
-bilby_pipe.data_generation.DataGenerationIput = GlitchDataGenerationInput
+bilby_pipe.data_generation.DataGenerationInput = GlitchDataGenerationInput
 
 
 def main():

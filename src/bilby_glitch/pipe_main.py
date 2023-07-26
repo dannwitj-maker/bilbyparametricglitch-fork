@@ -5,15 +5,6 @@ import importlib
 import pandas as pd
 import numpy as np
 
-from .overwrite_utils import uncache
-
-import bilby_pipe.parser
-import bilby_pipe.create_injections
-import bilby_pipe.main
-
-from .pipe_parser import glitch_create_parser
-from .pipe_create_injections import glitch_create_injection_file, GlitchInjectionCreator
-
 from bilby_pipe.utils import (
     logger,
     BilbyPipeError,
@@ -23,15 +14,27 @@ from bilby_pipe.utils import (
     get_outdir_name,
     tcolors,
 )
-from bilby_pipe.main import (
-    create_parser,
-    generate_dag,
-)
+
+from .overwrite_utils import uncache
+
+import bilby_pipe.parser
+import bilby_pipe.create_injections
+import bilby_pipe.main
+import bilby_pipe.job_creation.nodes
+
+from .pipe_parser import glitch_create_parser
+from .pipe_create_injections import glitch_create_injection_file, GlitchInjectionCreator
+from .pipe_job_creation import generate_dag
 
 bilby_pipe.parser.create_parser = glitch_create_parser
 bilby_pipe.create_injections.InjectionCreator = GlitchInjectionCreator
 bilby_pipe.create_injections.create_injection_file = glitch_create_injection_file
-uncache(["bilby_pipe.parser", "bilby_pipe.create_injections"])
+uncache(
+    [
+        "bilby_pipe.parser",
+        "bilby_pipe.create_injections",
+    ]
+)
 
 
 class GlitchMainInput(bilby_pipe.main.MainInput):
