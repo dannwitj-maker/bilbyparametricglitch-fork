@@ -1,9 +1,6 @@
 import sys
 import configargparse
 
-import bilby_glitch.conversion
-import bilby_glitch.interferometer
-
 import bilby
 import bilby_pipe
 

@@ -22,6 +22,7 @@ from bilby_pipe.data_analysis import (
 )
 
 from .pipe_input import GlitchInput
+from .pipe_parser import glitch_create_parser
 
 
 class GlitchDataAnalysisInput(GlitchInput):
@@ -394,7 +395,7 @@ class GlitchDataAnalysisInput(GlitchInput):
 
 def main():
     """Data analysis main logic"""
-    args, unknown_args = parse_args(sys.argv[1:], create_analysis_parser())
+    args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser(top_level=False))
     log_version_information()
     analysis = GlitchDataAnalysisInput(args, unknown_args)
     analysis.run_sampler()
