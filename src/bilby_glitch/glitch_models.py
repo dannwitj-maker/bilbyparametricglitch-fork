@@ -223,3 +223,59 @@ def slow_scattering(
 def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
     """A placeholder for when no CBC is passed to a joint analysis"""
     return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
+
+
+def fast_scattering(f,
+                    A=1e-21,
+                    C1=50,
+                    f1=0.3,
+                    C2=7,
+                    f2=5,
+                    geocent_time=0,
+                    phi=0,
+                    **kwargs):
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs['duration']
+    sampling_frequency = kwargs['sampling_frequency']
+    segment_start_time = kwargs['start_time']
+
+    time_to_rotate_base = -duration / 2
+    # bilby assumes that the segment starts at start time and rotates accordingly
+    # see https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/gw/detector/interferometer.py#L309 through L313
+    # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
+
+    # if possible preload array
+    if 'time_array' in kwargs.keys():
+        t = kwargs['time_array']
+        if t[0] != 0:
+            t -= segment_start_time
+    else:
+        # make a time space
+        t = np.linspace(0, duration, duration * sampling_frequency)
+
+    xoft = C1 * np.sin(2 * np.pi * f1 * (t - duration / 2)) + C2 * np.sin(2 * np.pi * f2 * (t - duration / 2))
+    hoft = A * np.sin(xoft + phi)
+
+    # determine and apply window, centered on duration / 2
+    # This window is necessary because our equation describes an infinite set of arches
+    # But naturally we only want to fit for one
+    # Get the window - centered at the arches center, total width of 1 / 2 / fmod0
+    fwindow = min(f1,f2)
+    window_low = duration / 2 - 0.25 / fwindow
+    window_high = duration / 2 + 0.25 / fwindow
+    window_idxs = np.argwhere((t > window_low) & (t < window_high))
+    tukey_window = tukey(window_idxs.flatten().shape[0], alpha=0.2)
+    hoft[window_idxs.flatten()] *= tukey_window
+    outside_window_mask = np.zeros(hoft.shape, dtype=bool)
+    outside_window_mask[window_idxs] = True
+    hoft[~outside_window_mask] = 0
+
+    # FFT
+    htilde_temp = nfft(hoft, sampling_frequency)
+
+    # A time shift - first, to the beginning / end of the data segment, then backwards to the ifo_time
+    htilde_shifted = htilde_temp[0] * np.exp(-2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base))
+    htilde = htilde_shifted
+
+    return {kwargs["glitch_mode_name"]: htilde, 'plus': htilde * 0, 'cross': htilde * 0}
