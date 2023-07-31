@@ -596,6 +596,21 @@ class GlitchDataGenerationInput(GlitchInput):
                     raise_error=False,
                 )
 
+        # if self.plot_spectrogram:
+        #     for ifo in self.interferometers:
+        #         plot_kwargs = dict(
+        #             det=ifo.name,
+        #             data_directory=self.data_directory,
+        #             trigger_time=self.trigger_time,
+        #             duration=self.duration,
+        #             post_trigger_duration=self.post_trigger_duration,
+        #             label=self.label,
+        #         )
+
+        #         strain_spectrogram_plot(
+        #             data=ifo.strain_data.to_gwpy_timeseries(), **plot_kwargs
+        #         )
+
     def inject_signal_into_time_domain_data(self, data, ifo):
         """Method to inject a signal into time-domain interferometer data
 
