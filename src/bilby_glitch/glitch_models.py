@@ -101,9 +101,10 @@ def slow_scattering(
         time_array :
             Precomputed time array corresponding to the data characteristics, passed for efficiency
         glitch_mode_name : str
-            The name to assign the glitch mode - should take the form
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+
     Returns
-    ------------
+    =======
     strain_dict : dict
         Contains 'plus' => the compute strain and 'cross' => 0s in the appropriate shame, as a dummy
     """
@@ -225,20 +226,14 @@ def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
     return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
 
 
-def fast_scattering(f,
-                    A=1e-21,
-                    C1=50,
-                    f1=0.3,
-                    C2=7,
-                    f2=5,
-                    geocent_time=0,
-                    phi=0,
-                    **kwargs):
+def fast_scattering(
+    f, A=1e-21, C1=50, f1=0.3, C2=7, f2=5, geocent_time=0, phi=0, **kwargs
+):
 
     # get kwargs, setup ifo delay for geocent time injection purposes
-    duration = kwargs['duration']
-    sampling_frequency = kwargs['sampling_frequency']
-    segment_start_time = kwargs['start_time']
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
 
     time_to_rotate_base = -duration / 2
     # bilby assumes that the segment starts at start time and rotates accordingly
@@ -246,22 +241,24 @@ def fast_scattering(f,
     # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
 
     # if possible preload array
-    if 'time_array' in kwargs.keys():
-        t = kwargs['time_array']
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
         if t[0] != 0:
             t -= segment_start_time
     else:
         # make a time space
         t = np.linspace(0, duration, duration * sampling_frequency)
 
-    xoft = C1 * np.sin(2 * np.pi * f1 * (t - duration / 2)) + C2 * np.sin(2 * np.pi * f2 * (t - duration / 2))
+    xoft = C1 * np.sin(2 * np.pi * f1 * (t - duration / 2)) + C2 * np.sin(
+        2 * np.pi * f2 * (t - duration / 2)
+    )
     hoft = A * np.sin(xoft + phi)
 
     # determine and apply window, centered on duration / 2
     # This window is necessary because our equation describes an infinite set of arches
     # But naturally we only want to fit for one
     # Get the window - centered at the arches center, total width of 1 / 2 / fmod0
-    fwindow = min(f1,f2)
+    fwindow = min(f1, f2)
     window_low = duration / 2 - 0.25 / fwindow
     window_high = duration / 2 + 0.25 / fwindow
     window_idxs = np.argwhere((t > window_low) & (t < window_high))
@@ -275,7 +272,108 @@ def fast_scattering(f,
     htilde_temp = nfft(hoft, sampling_frequency)
 
     # A time shift - first, to the beginning / end of the data segment, then backwards to the ifo_time
-    htilde_shifted = htilde_temp[0] * np.exp(-2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base))
+    htilde_shifted = htilde_temp[0] * np.exp(
+        -2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base)
+    )
     htilde = htilde_shifted
 
-    return {kwargs["glitch_mode_name"]: htilde, 'plus': htilde * 0, 'cross': htilde * 0}
+    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
+
+
+def aux_informed(
+    f: np.ndarray,
+    amp0: float = 0,
+    amp1: float = 0,
+    amp2: float = 0,
+    amp3: float = 0,
+    amp4: float = 0,
+    amp5: float = 0,
+    amp6: float = 0,
+    amp7: float = 0,
+    amp8: float = 0,
+    amp9: float = 0,
+    phi0: float = 0,
+    phi1: float = 0,
+    phi2: float = 0,
+    phi3: float = 0,
+    phi4: float = 0,
+    phi5: float = 0,
+    phi6: float = 0,
+    phi7: float = 0,
+    phi8: float = 0,
+    phi9: float = 0,
+    scale: float = 1,
+    **kwargs,
+):
+    """Get the strain data for a scattering arch, as predicted by a witness channel w/ arbitrary phase and amplitude coupling
+
+    Parameters
+    ==========
+    f : np.ndarray
+        The frequencies for which the strain should be computed
+    amp{i} : float
+        Runs over i=0,1,...9, the amplitude for the ith arch
+    phi{i} : float
+        Runs over i=0,1,...9, the phase for the ith arch
+    scale : float
+        The scale factor controlling the frequency distance between arches
+    kwargs:
+        number_harmonics : int
+            Number of arches to loop over - default 1 implies only 0th arch
+        duration : int
+            Duration of the segment in seconds, should be multiple of 2
+        sampling_frequency : int
+            The sampling rate of the data, should be a multiple of 2
+        time_array :
+            Precomputed time array corresponding to the data characteristics, passed for efficiency
+        glitch_mode_name : str
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+        aux_time_series : `gwpy.timeseries.TimeSeries`
+            The time series from the auxiliary data channel
+            When called by GlitchWaveformGenerator, pass the channel name as aux_channel
+
+    Returns
+    =======
+    strain_dict : dict
+        Contains 'plus' => the compute strain and 'cross' => 0s in the appropriate shame, as a dummy
+    """
+
+    # set number of arches to loop over
+    if not kwargs.keys():
+        n_harmonics = 1
+    else:
+        n_harmonics = kwargs["number_harmonics"]
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
+    aux_time_series = kwargs["aux_time_series"]
+
+    # if possible preload array
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
+        if t[0] != 0:
+            t -= segment_start_time
+    else:
+        # make a time space
+        t = np.linspace(0, duration, duration * sampling_frequency)
+
+    # The duration of the aux channel needs to match
+    assert aux_time_series.duration == duration
+    # Aux channels are probably sampled at less than our rate, so resample
+    aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
+    # Make goft
+    goft = np.zeros(len(t.shape))
+    # Add up each arch
+    for harmonic_idx in range(1, 1 + n_harmonics):
+        # fetch variables by index
+        temp_amp = locals()[f"amp{harmonic_idx-1}"]
+        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        goft += temp_amp * np.sin(
+            scale * harmonic_idx * aux_time_series_resampled.value + temp_phi
+        )
+
+    gtilde = nfft(goft)
+
+    return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}

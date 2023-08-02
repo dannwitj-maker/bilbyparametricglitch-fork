@@ -1,3 +1,6 @@
+from gwpy.timeseries import TimeSeries
+
+from bilby.core.utils import logger
 from bilby.gw.waveform_generator import WaveformGenerator
 from bilby.gw.conversion import identity_map_conversion
 
@@ -24,6 +27,15 @@ class GlitchWaveformGenerator(WaveformGenerator):
         ] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
         if parameter_conversion is None:
             parameter_conversion = identity_map_conversion
+        if "aux_channel" in waveform_arguments:
+            aux_channel = waveform_arguments["aux_channel"]
+            logger.info(f"Getting data for aux channel {aux_channel}")
+            aux_time_series = TimeSeries.fetch(
+                aux_channel, start_time, start_time + duration
+            )
+            waveform_arguments.pop("aux_channel")
+            waveform_arguments["aux_time_series"] = aux_time_series
+
         super(GlitchWaveformGenerator, self).__init__(
             duration=duration,
             sampling_frequency=sampling_frequency,
