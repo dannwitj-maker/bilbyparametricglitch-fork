@@ -303,6 +303,7 @@ def aux_informed(
     phi8: float = 0,
     phi9: float = 0,
     scale: float = 1,
+    geocent_time: float = 0,
     **kwargs,
 ):
     """Get the strain data for a scattering arch, as predicted by a witness channel w/ arbitrary phase and amplitude coupling
@@ -360,20 +361,27 @@ def aux_informed(
         t = np.linspace(0, duration, duration * sampling_frequency)
 
     # The duration of the aux channel needs to match
-    assert aux_time_series.duration == duration
+    assert (
+        aux_time_series.duration.value == duration
+    ), f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
     # Aux channels are probably sampled at less than our rate, so resample
     aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
     # Make goft
-    goft = np.zeros(len(t.shape))
+    goft = np.zeros(t.shape)
     # Add up each arch
+
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
         temp_amp = locals()[f"amp{harmonic_idx-1}"]
         temp_phi = locals()[f"phi{harmonic_idx-1}"]
         goft += temp_amp * np.sin(
-            scale * harmonic_idx * aux_time_series_resampled.value + temp_phi
+            4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
+            + temp_phi
         )
 
-    gtilde = nfft(goft)
+    goft *= tukey(goft.shape[0], alpha=0.2)
+
+    gtilde, frequencies = nfft(goft, sampling_frequency=sampling_frequency)
+    gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}

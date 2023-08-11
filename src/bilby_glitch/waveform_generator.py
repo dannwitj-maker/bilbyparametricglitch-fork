@@ -31,9 +31,13 @@ class GlitchWaveformGenerator(WaveformGenerator):
             aux_channel = waveform_arguments["aux_channel"]
             logger.info(f"Getting data for aux channel {aux_channel}")
             aux_time_series = TimeSeries.fetch(
-                aux_channel, start_time, start_time + duration
+                aux_channel, start_time, start_time + duration, allow_tape=True
             )
             waveform_arguments.pop("aux_channel")
+            waveform_arguments["aux_time_series"] = aux_time_series
+        elif "aux_channel_file" in waveform_arguments:
+            aux_time_series = TimeSeries.read(waveform_arguments["aux_channel_file"])
+            waveform_arguments.pop("aux_channel_file")
             waveform_arguments["aux_time_series"] = aux_time_series
 
         super(GlitchWaveformGenerator, self).__init__(
