@@ -385,3 +385,191 @@ def aux_informed(
     gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
+
+
+def aux_informed_amplitude_splines(
+    f: np.ndarray,
+    amp0: float = 0,
+    amp1: float = 0,
+    amp2: float = 0,
+    amp3: float = 0,
+    amp4: float = 0,
+    amp5: float = 0,
+    amp6: float = 0,
+    amp7: float = 0,
+    amp8: float = 0,
+    amp9: float = 0,
+    phi0: float = 0,
+    phi1: float = 0,
+    phi2: float = 0,
+    phi3: float = 0,
+    phi4: float = 0,
+    phi5: float = 0,
+    phi6: float = 0,
+    phi7: float = 0,
+    phi8: float = 0,
+    phi9: float = 0,
+    spline0: float = 1,
+    spline1: float = 1,
+    spline2: float = 1,
+    spline3: float = 1,
+    spline4: float = 1,
+    spline5: float = 1,
+    spline6: float = 1,
+    spline7: float = 1,
+    spline8: float = 1,
+    spline9: float = 1,
+    scale: float = 1,
+    geocent_time: float = 0,
+    **kwargs,
+):
+    """Get the strain data for a scattering arch, as predicted by a witness channel w/ arbitrary phase and amplitude coupling
+
+    Parameters
+    ==========
+    f : np.ndarray
+        The frequencies for which the strain should be computed
+    amp{i} : float
+        Runs over i=0,1,...9, the amplitude for the ith arch
+    phi{i} : float
+        Runs over i=0,1,...9, the phase for the ith arch
+    scale : float
+        The scale factor controlling the frequency distance between arches
+    kwargs:
+        number_harmonics : int
+            Number of arches to loop over - default 1 implies only 0th arch
+        duration : int
+            Duration of the segment in seconds, should be multiple of 2
+        sampling_frequency : int
+            The sampling rate of the data, should be a multiple of 2
+        time_array :
+            Precomputed time array corresponding to the data characteristics, passed for efficiency
+        glitch_mode_name : str
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+        aux_time_series : `gwpy.timeseries.TimeSeries`
+            The time series from the auxiliary data channel
+            When called by GlitchWaveformGenerator, pass the channel name as aux_channel
+        number_splines : int
+            The number of amplitude splines to place, between 2 and 10
+        spline_interpolation_times : np.ndarray
+            The array of times to place the splines at - they should be evenly spaced over the duration.
+            If this isn't passed then this function will do compute it
+            *which is EXTREMELY inefficient*!
+
+    Returns
+    =======
+    strain_dict : dict
+        Contains 'plus' => the compute strain and 'cross' => 0s in the appropriate shame, as a dummy
+    """
+
+    # set number of arches to loop over
+    if not kwargs.keys():
+        n_harmonics = 1
+    else:
+        n_harmonics = kwargs["number_harmonics"]
+
+    number_splines = kwargs["number_splines"]
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
+    aux_time_series = kwargs["aux_time_series"]
+
+    # if possible preload array
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
+        if t[0] != 0:
+            t -= segment_start_time
+    else:
+        # make a time space
+        t = np.linspace(0, duration, duration * sampling_frequency)
+
+    if "spline_interpolation_times" in kwargs.keys():
+        interp_times = kwargs["spline_interpolation_times"]
+    else:
+        interp_times = np.linspace(0, duration, kwargs["number_splines"])
+
+    # The duration of the aux channel needs to match
+    assert (
+        aux_time_series.duration.value == duration
+    ), f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
+    # Aux channels are probably sampled at less than our rate, so resample
+    aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
+    # Make goft
+    goft = np.zeros(t.shape)
+    # Add up each arch
+
+    for harmonic_idx in range(1, 1 + n_harmonics):
+        # fetch variables by index
+        temp_amp = locals()[f"amp{harmonic_idx-1}"]
+        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        goft += temp_amp * np.sin(
+            4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
+            + temp_phi
+        )
+
+    amplitude_spline_values = np.zeros((number_splines,))
+    for ii in range(number_splines):
+        # This is so stupid I wish I knew a better way
+        # TODO figure out a better way
+        amplitude_spline_values[ii] = locals()[f"spline{ii}"]
+    amplitude_spline_interp = np.interp(t, interp_times, amplitude_spline_values)
+
+    logger.info(amplitude_spline_interp)
+
+    goft *= amplitude_spline_interp
+
+    goft *= tukey(goft.shape[0], alpha=0.2)
+
+    gtilde, frequencies = nfft(goft, sampling_frequency=sampling_frequency)
+    gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
+
+    return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
+
+
+def anti_glitch(
+    f: np.ndarray, A: float, phi: float, f0: float, gamma: float, t0: float, **kwargs
+):
+    """Implement the antiglitch model for short duration glitches
+    arXiv:2309.06594 [astro-ph, physics:gr-qc]
+
+    Parameters
+    ==========
+    f : np.ndarray,
+        The array of frequencies to evaluate the waveform at
+    A : float
+        The amplitude of the glitch
+        Note that we don't include the normalization factor used in Bondarescu+
+        Instead this just has range ~10^-21
+    phi : float
+        The overall phase of the glitch
+    f0 : float
+        The peak frequency of the glitch
+    gamma : float
+        The damping constant of the damping part of the glitch
+    t0 : float
+        The central time of the glitch
+
+    Returns
+    =======
+    """
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs["duration"]
+
+    time_to_rotate_base = -duration / 2
+    # bilby assumes that the segment starts at start time and rotates accordingly
+    # see https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/gw/detector/interferometer.py#L309 through L313
+    # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
+
+    htilde_temp = (
+        A
+        * np.exp(-gamma * (np.log(f) - np.log(f0)) ** 2 / 2)
+        * np.exp(1j * phi - 2 * np.pi * 1j * f * t0)
+    )
+
+    # A time shift - first, to the beginning / end of the data segment, then backwards to the ifo_time
+    htilde = htilde_temp * np.exp(-2 * np.pi * 1j * f * (time_to_rotate_base))
+
+    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
