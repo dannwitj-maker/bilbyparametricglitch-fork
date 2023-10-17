@@ -5,8 +5,6 @@ import gwpy
 import lal
 import glob
 
-from .overwrite_utils import uncache
-
 import bilby
 
 from bilby.gw.detector import PowerSpectralDensity, calibration

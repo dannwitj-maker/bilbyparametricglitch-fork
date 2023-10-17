@@ -1,3 +1,5 @@
+import numpy as np
+
 from gwpy.timeseries import TimeSeries
 
 from bilby.core.utils import logger
@@ -39,6 +41,11 @@ class GlitchWaveformGenerator(WaveformGenerator):
             aux_time_series = TimeSeries.read(waveform_arguments["aux_channel_file"])
             waveform_arguments.pop("aux_channel_file")
             waveform_arguments["aux_time_series"] = aux_time_series
+        if "number_splines" in waveform_arguments:
+            spline_interp_times = np.linspace(
+                0, duration, waveform_arguments["number_splines"]
+            )
+            waveform_arguments["spline_interp_times"] = spline_interp_times
 
         super(GlitchWaveformGenerator, self).__init__(
             duration=duration,
