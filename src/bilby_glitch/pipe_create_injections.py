@@ -11,12 +11,16 @@ from bilby_pipe.utils import (
     check_directory_exists_and_if_not_mkdir,
     get_geocent_time_with_uncertainty,
 )
-from bilby_pipe.create_injections import BilbyPipeCreateInjectionsError, create_parser
+from bilby_pipe.create_injections import (
+    BilbyPipeCreateInjectionsError,
+    create_parser,
+    InjectionCreator,
+)
 
 from .pipe_input import GlitchInput
 
 
-class GlitchInjectionCreator(GlitchInput):
+class GlitchInjectionCreator(InjectionCreator, GlitchInput):
     """An object to hold inputs to create_injection for consistency"""
 
     def __init__(
@@ -36,30 +40,26 @@ class GlitchInjectionCreator(GlitchInput):
         joint_prior_files=None,
         injection_is_joint=False,
     ):
-        self.prior_file = prior_file
-        self.prior_dict = prior_dict
+        InjectionCreator.__init__(
+            self,
+            prior_file=prior_file,
+            prior_dict=prior_dict,
+            default_prior=default_prior,
+            trigger_time=trigger_time,
+            gpstimes=gpstimes,
+            n_injection=n_injection,
+            generation_seed=generation_seed,
+            deltaT=deltaT,
+            duration=duration,
+            post_trigger_duration=post_trigger_duration,
+            enforce_signal_duration=enforce_signal_duration,
+            minimum_frequency=minimum_frequency,
+        )
+
         self.injection_is_joint = injection_is_joint
         self.likelihood_is_joint = injection_is_joint
         self.joint_prior_files = joint_prior_files
         self.check_prior()
-        self.default_prior = default_prior
-        self.trigger_time = trigger_time
-        self.gpstimes = gpstimes
-        self.deltaT = deltaT
-        self.duration = duration
-        self.post_trigger_duration = post_trigger_duration
-        self.n_injection = n_injection
-        self.generation_seed = generation_seed
-        self.time_reference = "geocent"
-        self.reference_frame = "sky"
-        self.detectors = self.known_detectors
-        self.minimum_frequency = minimum_frequency
-        self.enforce_signal_duration = enforce_signal_duration
-
-        if self.gpstimes is not None and self.trigger_time not in [0, None]:
-            raise BilbyPipeCreateInjectionsError(
-                "Cannot parse both gpstimes and trigger_time"
-            )
 
     def check_prior(self):
         """Ensures at least prior/prior_dict set"""
@@ -69,74 +69,6 @@ class GlitchInjectionCreator(GlitchInput):
             and self.joint_prior_files is None
         ):
             raise BilbyPipeCreateInjectionsError("No prior_file or prior_dict given")
-
-    @property
-    def n_injection(self):
-        """The number of injections parameters to be stored."""
-        return self._n_injection
-
-    @n_injection.setter
-    def n_injection(self, n_injection):
-        if self.gpstimes is not None:
-            gps_n_injection = len(self.gpstimes)
-            if n_injection is not None:
-                logger.warning(
-                    f"n-injection={gps_n_injection} given but gps_file/gps_tuple is also given,"
-                    f" ignoring n-injection={n_injection}"
-                )
-            n_injection = gps_n_injection
-
-        if isinstance(n_injection, int) is False or n_injection < 1:
-            raise BilbyPipeCreateInjectionsError(
-                f"n_injection={n_injection}, but must be a positive integer"
-            )
-        self._n_injection = n_injection
-
-    def get_injection_dataframe(self):
-        """Samples parameters from the prior into a dataframe"""
-        inj_df = pd.DataFrame.from_dict(self.priors.sample(self.n_injection))
-        if self.gpstimes is not None:
-            geocent_times = []
-            for start_time in self.gpstimes:
-                geocent_time = get_geocent_time_with_uncertainty(
-                    geocent_time=start_time
-                    + self.duration
-                    - self.post_trigger_duration,
-                    uncertainty=self.deltaT / 2.0,
-                )
-                geocent_times.append(geocent_time)
-            inj_df["geocent_time"] = geocent_times
-        return inj_df
-
-    @staticmethod
-    def write_injection_dataframe(dataframe, filename, extension):
-        """Writes dataframe into a file with a dat/json extension"""
-        path, extension = get_full_path(filename, extension)
-        if extension == "json":
-            injections = dict(injections=dataframe)
-            with open(path, "w") as file:
-                json.dump(
-                    injections, file, indent=2, cls=bilby.core.result.BilbyJsonEncoder
-                )
-        elif extension == "dat":
-            dataframe.to_csv(path, index=False, header=True, sep=" ")
-        else:
-            raise BilbyPipeCreateInjectionsError(
-                f"Extension {extension} not implemented"
-            )
-        logger.info(f"Created injection file {path}")
-
-    def generate_injection_file(self, filepath, extension):
-        """Sets the generation seed and randomly generates parameters to create inj"""
-        np.random.seed(self.generation_seed)
-        logger.info(
-            f"Generating injection file {filepath} from "
-            f"prior={self.prior_file}, "
-            f"n_injection={self.n_injection}, "
-            f"generation_seed={self.generation_seed}"
-        )
-        injection_dataframe = self.get_injection_dataframe()
-        self.write_injection_dataframe(injection_dataframe, filepath, extension)
 
 
 def get_full_path(filename, extension):
