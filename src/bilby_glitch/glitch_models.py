@@ -229,7 +229,6 @@ def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
 def fast_scattering(
     f, A=1e-21, C1=50, f1=0.3, C2=7, f2=5, geocent_time=0, phi=0, **kwargs
 ):
-
     # get kwargs, setup ifo delay for geocent time injection purposes
     duration = kwargs["duration"]
     sampling_frequency = kwargs["sampling_frequency"]
