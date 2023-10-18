@@ -42,7 +42,7 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
     """
 
     def __init__(self, args, unknown_args, create_data=True):
-        DataGenerationInput(self, args, unknown_args, create_data=False)
+        DataGenerationInput.__init__(self, args, unknown_args, create_data=False)
 
         # Check whether to do joint conditionals
         self.likelihood_is_joint = args.likelihood_is_joint
@@ -224,6 +224,8 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
 def main():
     """Data generation main logic"""
     args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser(top_level=False))
+    print(args)
+    print(unknown_args)
     log_version_information()
     data = GlitchDataGenerationInput(args, unknown_args)
     if args.likelihood_type == "ROQGravitationalWaveTransient":

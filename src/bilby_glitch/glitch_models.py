@@ -371,8 +371,8 @@ def aux_informed(
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
-        temp_amp = locals()[f"amp{harmonic_idx-1}"]
-        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        temp_amp = locals()[f"amp{harmonic_idx - 1}"]
+        temp_phi = locals()[f"phi{harmonic_idx - 1}"]
         goft += temp_amp * np.sin(
             4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
             + temp_phi
@@ -501,8 +501,8 @@ def aux_informed_amplitude_splines(
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
-        temp_amp = locals()[f"amp{harmonic_idx-1}"]
-        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        temp_amp = locals()[f"amp{harmonic_idx - 1}"]
+        temp_phi = locals()[f"phi{harmonic_idx - 1}"]
         goft += temp_amp * np.sin(
             4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
             + temp_phi

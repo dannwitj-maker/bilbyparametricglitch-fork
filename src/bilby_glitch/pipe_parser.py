@@ -78,6 +78,20 @@ def glitch_create_parser(top_level=True):
         help="Model args for wf generators used in a joint injection,"
         "indexed by glitch index name",
     )
+    injection_parser.add(
+        "--injection-frequency-domain-source-model",
+        default=None,
+        type=nonestr,
+        help=(
+            "Name of the frequency domain source model. Can be one of"
+            "[lal_binary_black_hole, lal_binary_neutron_star,"
+            "lal_eccentric_binary_black_hole_no_spins, sinegaussian, "
+            "supernova, supernova_pca_model] or any python  path to a bilby "
+            " source function the users installation, e.g. examp.source.bbh."
+            "When passed as None (default) falls back to standard"
+            "frequency-domain-source-model argument"
+        ),
+    )
     likelihood_parser = [
         x for x in parser._action_groups if x.title == "Likelihood arguments"
     ][0]
