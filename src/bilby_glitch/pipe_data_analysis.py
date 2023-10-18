@@ -41,6 +41,8 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
     def __init__(self, args, unknown_args, test=False):
         DataAnalysisInput.__init__(self, args, unknown_args)
 
+        self.extra_waveform_generator_kwargs = args.extra_waveform_generator_kwargs
+
         self.likelihood_is_joint = args.likelihood_is_joint
 
         # If we are doing joint, initialize extra stuff

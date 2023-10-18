@@ -44,6 +44,8 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
     def __init__(self, args, unknown_args, create_data=True):
         DataGenerationInput.__init__(self, args, unknown_args, create_data=False)
 
+        self.extra_waveform_generator_kwargs = args.extra_waveform_generator_kwargs
+
         # Check whether to do joint conditionals
         self.likelihood_is_joint = args.likelihood_is_joint
         self.injection_is_joint = args.injection_is_joint
