@@ -28,14 +28,19 @@ class GlitchMainInput(GlitchInput, MainInput):
     """An object to hold all the inputs to bilby_pipe"""
 
     def __init__(self, args, unknown_args, perform_checks=True):
-        MainInput.__init__(self, args, unknown_args, perform_checks=perform_checks)
-
-        print(self.known_args)
+        MainInput.__init__(self, args, unknown_args, perform_checks=False)
 
         self.likelihood_is_joint = args.likelihood_is_joint
         if self.likelihood_is_joint:
             self.joint_prior_files = args.joint_prior_files
             self.joint_prior_defaults = args.joint_prior_defaults
+
+        if perform_checks:
+            self.check_source_model(args)
+            self.check_calibration_prior_boundary(args)
+            self.check_cpu_parallelisation()
+            if self.injection:
+                self.check_injection()
 
     def check_injection(self):
         """Check injection behaviour

@@ -24,6 +24,7 @@ from bilby_pipe.data_analysis import (
 
 from .pipe_input import GlitchInput
 from .pipe_parser import glitch_create_parser
+from .result import JointCBCGlitchResult
 
 
 class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
@@ -63,6 +64,15 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
                 args.joint_waveform_generator_model_args
             )
             self.joint_waveform_generator_classes = args.joint_waveform_generators
+
+    @property
+    def result_class(self):
+        """The bilby result class to store results in"""
+        try:
+            return JointCBCGlitchResult
+        except AttributeError:
+            logger.debug("Unable to use Joint CBC-Glitch specific result class")
+            return None
 
 
 def main():

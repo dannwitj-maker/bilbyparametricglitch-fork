@@ -85,7 +85,7 @@ class GlitchInput(Input):
                 elif os.path.isfile(prior_file):
                     self._joint_prior_files[index_name] = prior_file
                 elif os.path.isfile(os.path.basename(prior_file)):
-                    self._prior_file = os.path.basename(prior_file)
+                    self._joint_prior_files[index_name] = os.path.basename(prior_file)
                 else:
                     raise FileNotFoundError(
                         f"For glitch {index_name},\
