@@ -4,6 +4,9 @@ import os
 import numpy as np
 import pandas as pd
 import copy
+import gwpy
+from typing import List
+from astropy import units as u
 
 from bilby.core.utils import latex_plot_format, infft, logger, safe_save_figure
 from bilby.gw.detector import get_empty_interferometer, Interferometer
@@ -12,18 +15,119 @@ from bilby.gw.utils import asd_from_freq_series
 
 class JointCBCGlitchResult(CBCResult):
     def __init__(self, parent=None, **kwargs):
-        self.parent = parent
-        if self.parent is None:
+        if parent is not None:
+            self.__dict__ = parent.__dict__.copy()
+        else:
             super(JointCBCGlitchResult, self).__init__(**kwargs)
 
-    def __getattr__(self, name):
-        if self.parent is not None:
-            try:
-                return getattr(self.parent, name)
-            except AttributeError:
-                raise AttributeError(
-                    f"JointCBCGlitchResult object has no attribute '{name}'"
-                )
+    def __get_from_nested_meta_data(self, *keys):
+        # For some reason this isn't inherited??
+        dictionary = self.meta_data
+        try:
+            item = None
+            for k in keys:
+                item = dictionary[k]
+                dictionary = item
+            return item
+        except KeyError:
+            raise AttributeError(f"No information stored for {'/'.join(keys)}")
+
+    @property
+    def glitch_names(self) -> list:
+        """The names of the glitches modeled in this result"""
+        return self.__get_from_nested_meta_data("likelihood", "glitch_names")
+
+    @property
+    def glitch_waveform_generator_classes(self) -> dict:
+        """The classes of the waveform generators for glitches modeled in this result"""
+        glitch_waveform_generator_classes = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_classes[name] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_class"
+            )
+        return glitch_waveform_generator_classes
+
+    @property
+    def glitch_waveform_generator_arguments(self) -> dict:
+        """The arguments of the waveform generator for glitches modeled in this result"""
+        glitch_waveform_generator_arguments = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_arguments[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_arguments"
+            )
+        return glitch_waveform_generator_arguments
+
+    @property
+    def glitch_waveform_generator_frequency_domain_source_models(self) -> dict:
+        """The fd source model of the waveform generator for glitches modeled in this result"""
+        glitch_waveform_generator_source_models = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_source_models[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_frequency_domain_source_model"
+            )
+        return glitch_waveform_generator_source_models
+
+    @property
+    def glitch_waveform_generator_time_domain_source_models(self) -> dict:
+        """The td source model of the waveform generator for glitches modeled in this result"""
+        glitch_waveform_generator_source_models = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_source_models[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_time_domain_source_model"
+            )
+        return glitch_waveform_generator_source_models
+
+    @property
+    def glitch_waveform_generator_parameter_conversion(self) -> dict:
+        """The parameter conversion functions of the waveform generators for glitches modeled in this result"""
+        glitch_waveform_generator_parameter_conversions = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_parameter_conversions[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_parameter_conversion"
+            )
+        return glitch_waveform_generator_parameter_conversions
+
+    @property
+    def glitch_waveform_generator_sampling_frequency(self) -> dict:
+        """The sampling frequencies of the waveform generators for glitches modeled in this result"""
+        glitch_waveform_generator_sampling_frequency = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_sampling_frequency[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_sampling_frequency"
+            )
+        return glitch_waveform_generator_sampling_frequency
+
+    @property
+    def glitch_waveform_generator_duration(self) -> dict:
+        """The durations of the waveform generators for glitches modeled in this result"""
+        glitch_waveform_generator_duration = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_duration[name] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_duration"
+            )
+        return glitch_waveform_generator_duration
+
+    @property
+    def glitch_waveform_generator_start_time(self) -> dict:
+        """The sampling frequency of the waveform generators for glitches modeled in this result"""
+        glitch_waveform_generator_start_time = dict()
+        for name in self.glitch_names:
+            glitch_waveform_generator_start_time[
+                name
+            ] = self.__get_from_nested_meta_data(
+                "likelihood", f"{name}_generator_start_time"
+            )
+        return glitch_waveform_generator_start_time
 
     @latex_plot_format
     def plot_interferometer_waveform_posterior(
@@ -32,6 +136,7 @@ class JointCBCGlitchResult(CBCResult):
         glitch_prefix,
         glitch_waveform_generator=None,
         cbc_waveform_generator=None,
+        additional_timeseries: List[gwpy.timeseries.TimeSeries] = None,
         level=0.9,
         n_samples=None,
         save=True,
@@ -90,6 +195,7 @@ class JointCBCGlitchResult(CBCResult):
         GLITCH_WAVEFORM_COLOR = "#328C53"
         CBC_WAVEFORM_COLOR = "#1f77b4"
         INJECTION_COLOR = "#000000"
+        ADDITIONAL_TIMESERIES_COLOR = "#A22648"
 
         if glitch_waveform_generator is not None:
             glitch_waveform_generator = copy.deepcopy(glitch_waveform_generator)
@@ -180,6 +286,26 @@ class JointCBCGlitchResult(CBCResult):
         start_time -= interferometer.strain_data.start_time
         end_time -= interferometer.strain_data.start_time
         plot_frequencies = interferometer.frequency_array[frequency_idxs]
+
+        plot_additional_tseries_data = list()
+        if additional_timeseries is not None:
+            for tseries in additional_timeseries:
+                tseries = tseries.crop(
+                    start_time + np.mean(glitch_samples.geocent_time),
+                    end_time + np.mean(glitch_samples.geocent_time),
+                    copy=True,
+                )
+                tseries.times -= (
+                    np.mean(glitch_samples.geocent_time) + start_time
+                ) * u.s
+                tseries = tseries.whiten(
+                    asd=gwpy.frequencyseries.FrequencySeries(
+                        interferometer.amplitude_spectral_density_array,
+                        frequencies=interferometer.frequency_array,
+                    )
+                )
+                print(tseries.value)
+                plot_additional_tseries_data.append(tseries)
 
         if format == "html":
             fig = make_subplots(
@@ -494,6 +620,13 @@ class JointCBCGlitchResult(CBCResult):
                     np.percentile(cbc_td_waveforms, upper_percentile, axis=0),
                     color=CBC_WAVEFORM_COLOR,
                     alpha=0.3,
+                )
+
+            for tseries in plot_additional_tseries_data:
+                axs[1].plot(
+                    tseries.times,
+                    tseries.value,
+                    color=ADDITIONAL_TIMESERIES_COLOR,
                 )
 
         if self.injection_parameters is not None:

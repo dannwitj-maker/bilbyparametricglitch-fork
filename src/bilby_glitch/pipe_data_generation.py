@@ -114,14 +114,14 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                     args.joint_injection_waveform_generator_model_args
                 )
 
-            if args.injection_frequency_domain_source_model is None:
-                self.injection_frequency_domain_source_model = (
-                    args.frequency_domain_source_model
-                )
-            else:
-                self.injection_frequency_domain_source_model = (
-                    args.injection_frequency_domain_source_model
-                )
+        if args.injection_frequency_domain_source_model is None:
+            self.injection_frequency_domain_source_model = (
+                args.frequency_domain_source_model
+            )
+        else:
+            self.injection_frequency_domain_source_model = (
+                args.injection_frequency_domain_source_model
+            )
 
         if create_data:
             self.create_data(args)

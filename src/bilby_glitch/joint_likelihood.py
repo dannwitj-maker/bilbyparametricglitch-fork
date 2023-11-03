@@ -462,17 +462,18 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
             reference_frame=self._reference_frame_str,
             lal_version=self.lal_version,
             lalsimulation_version=self.lalsimulation_version,
+            glitch_names=list(),
         )
         if (
             not self.waveform_generator.frequency_domain_source_model
             == _blank_frequency_domain_source_model
         ):
             cbc_metadata = dict(
-                cbc_waveform_generator_class=self.waveform_generator.__class__,
-                cbc_waveform_arguments=self.waveform_generator.waveform_arguments,
-                cbc_frequency_domain_source_model=self.waveform_generator.frequency_domain_source_model,
-                cbc_time_domain_source_model=self.waveform_generator.time_domain_source_model,
-                cbc_parameter_conversion=self.waveform_generator.parameter_conversion,
+                waveform_generator_class=self.waveform_generator.__class__,
+                waveform_arguments=self.waveform_generator.waveform_arguments,
+                frequency_domain_source_model=self.waveform_generator.frequency_domain_source_model,
+                time_domain_source_model=self.waveform_generator.time_domain_source_model,
+                parameter_conversion=self.waveform_generator.parameter_conversion,
                 sampling_frequency=self.waveform_generator.sampling_frequency,
                 duration=self.waveform_generator.duration,
                 start_time=self.waveform_generator.start_time,
@@ -490,4 +491,15 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                 f"{glitch_name}_generator_start_time": glitch_wf_generator.start_time,
             }
             metadata_dict.update(glitch_metadata)
+            metadata_dict["glitch_names"].append(glitch_name)
+            if "sampling_frequency" not in metadata_dict:
+                # Assume in case of multiple glitch waveform generators
+                # that they share a sampling frequency, duration, start_time
+                metadata_dict.update(
+                    dict(
+                        sampling_frequency=glitch_wf_generator.sampling_frequency,
+                        duration=glitch_wf_generator.duration,
+                        start_time=glitch_wf_generator.start_time,
+                    )
+                )
         return metadata_dict
