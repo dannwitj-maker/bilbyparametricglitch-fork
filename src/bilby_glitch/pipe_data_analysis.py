@@ -68,11 +68,18 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
     @property
     def result_class(self):
         """The bilby result class to store results in"""
-        try:
-            return JointCBCGlitchResult
-        except AttributeError:
-            logger.debug("Unable to use Joint CBC-Glitch specific result class")
-            return None
+        if self.likelihood_is_joint:
+            try:
+                return JointCBCGlitchResult
+            except AttributeError:
+                logger.debug("Unable to use Joint CBC-Glitch specific result class")
+                return None
+        else:
+            try:
+                return bilby.gw.result.CBCResult
+            except AttributeError:
+                logger.debug("Unable to use CBC result class")
+                return None
 
 
 def main():
