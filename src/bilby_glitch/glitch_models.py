@@ -98,6 +98,144 @@ def populate_unused_parameters(
 def slow_scattering(
     f,
     geocent_time=0,
+    harmonic_frequency_delta=25,
+    base_harmonic_frequency=30,
+    modulation_frequency=0.5,
+    phi_0=0,
+    phi_1=0,
+    phi_2=0,
+    phi_3=0,
+    phi_4=0,
+    phi_5=0,
+    phi_6=0,
+    phi_7=0,
+    phi_8=0,
+    phi_9=0,
+    amplitude_0=1e-21,
+    amplitude_1=0,
+    amplitude_2=0,
+    amplitude_3=0,
+    amplitude_4=0,
+    amplitude_5=0,
+    amplitude_6=0,
+    amplitude_7=0,
+    amplitude_8=0,
+    amplitude_9=0,
+    **kwargs,
+):
+    """
+    Returns frequency domain strain associated with a set of slow scattering arches
+
+    Parameters
+    -----------
+    f :
+        The frequencies array for the data, should satisfy associated conditions with duration and sampling rate of data
+    geocent_time : float
+        The geocenter time to center the 0th arch at, and optionally all other arches as well
+    base_harmonic_frequency : float
+        The harmonic frequency (i.e. maximum frequency reached) for the 0th arch
+    harmonic_frequency_delta : float
+        The expected difference in harmonic frequency between the ith and i+1th arch
+    modulation_frequency : float
+        The modulation frequency of the scattering arches
+    phi_{i} : float
+        {i} runs over 0-9, the phase of the ith arch
+    amplitude_{i} : float
+        {i} runs over 0-9, the amplitude of the ith arch
+    **kwargs
+        number_harmonics : int
+            Number of arches to loop over - default 1 implies only 0th arch
+        duration : int
+            Duration of the segment in seconds, should be multiple of 2
+        sampling_frequency : int
+            The sampling rate of the data, should be a multiple of 2
+        time_array :
+            Precomputed time array corresponding to the data characteristics, passed for efficiency
+        glitch_mode_name : str
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+
+    Returns
+    =======
+    strain_dict : dict
+        Contains 'plus' => the compute strain and 'cross' => 0s in the appropriate shame, as a dummy
+    """
+    # set number of arches to loop over
+    if not kwargs.keys():
+        n_harmonics = 1
+    else:
+        n_harmonics = kwargs["number_harmonics"]
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
+
+    time_to_rotate_base = -duration / 2
+    # bilby assumes that the segment starts at start time and rotates accordingly
+    # see https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/gw/detector/interferometer.py#L309 through L313
+    # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
+
+    # if possible preload array
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
+        if t[0] != 0:
+            t -= segment_start_time
+    else:
+        # make a time space
+        t = np.linspace(0, duration, duration * sampling_frequency)
+
+    # get hoft of 0th arch
+    # note - generates initially in the center of the time array, to prevent weirdness with the window
+    # this will get shifted appropriately later
+    hoft_temp = amplitude_0 * np.sin(
+        (base_harmonic_frequency / modulation_frequency)
+        * np.sin(2 * np.pi * modulation_frequency * (t - duration / 2))
+        + phi_0
+    )
+
+    for harmonic_idx in range(1, n_harmonics):
+        # fetch variables by index
+        temp_amp = locals()[f"amplitude_{harmonic_idx}"]
+        temp_phi = locals()[f"phi_{harmonic_idx}"]
+
+        temp_f_harm = base_harmonic_frequency + harmonic_idx * harmonic_frequency_delta
+
+        # get hoft for this arch
+        hoft_temp += temp_amp * np.sin(
+            (temp_f_harm / modulation_frequency)
+            * np.sin(2 * np.pi * modulation_frequency * (t - duration / 2))
+            + temp_phi
+        )
+
+    # Determine and apply window, centered on duration / 2
+    # This window is necessary because our equation describes an infinite set of arches
+    # But naturally we only want to fit for one
+    # Get the window - centered at the arches center, total width of 1 / 2 / fmod0
+    window_low = duration / 2 - 0.25 / modulation_frequency
+    window_high = duration / 2 + 0.25 / modulation_frequency
+    window_idxs = np.argwhere((t > window_low) & (t < window_high))
+    tukey_window = tukey(window_idxs.flatten().shape[0], alpha=0.2)
+    hoft_temp[window_idxs.flatten()] *= tukey_window
+    outside_window_mask = np.zeros(hoft_temp.shape, dtype=bool)
+    outside_window_mask[window_idxs] = True
+    hoft_temp[~outside_window_mask] = 0
+
+    hoft = hoft_temp
+
+    # FFT our TD waveform
+    htilde_temp = nfft(hoft, sampling_frequency)
+    # Apply a shift so that it's where bilby expects it to be rather than in the center of the segment
+    htilde_shifted = htilde_temp[0] * np.exp(
+        -2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base)
+    )
+    htilde = htilde_shifted
+
+    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
+
+
+def slow_scattering_extended(
+    f,
+    geocent_time=0,
     f_harm0=30,
     f_mod0=0.5,
     phi0=0,
@@ -151,7 +289,8 @@ def slow_scattering(
     **kwargs,
 ):
     """
-    Returns frequency domain strain associated with a set of slow scattering arches
+    Returns frequency domain strain associated with a set of slow scattering arches.
+    Has greater flexibility than the base model - this is actually the original model from Udall + Davis 2022
 
     Parameters
     -----------
