@@ -1,9 +1,98 @@
 import logging
 import numpy as np
+import copy
 from scipy.signal.windows import tukey
 from bilby.core.utils import nfft
 
 logger = logging.getLogger(__name__)
+
+SLOW_SCATTERING_PARAMETERS = [
+    "geocent_time",
+    "f_diff",
+    "f_harm0",
+    "delta_f_harm1",
+    "delta_f_harm2",
+    "delta_f_harm3",
+    "delta_f_harm4",
+    "delta_f_harm5",
+    "delta_f_harm6",
+    "delta_f_harm7",
+    "delta_f_harm8",
+    "delta_f_harm9",
+    "f_mod0",
+    "delta_f_mod1",
+    "delta_f_mod2",
+    "delta_f_mod3",
+    "delta_f_mod4",
+    "delta_f_mod5",
+    "delta_f_mod6",
+    "delta_f_mod7",
+    "delta_f_mod8",
+    "delta_f_mod9",
+    "phi0",
+    "phi1",
+    "phi2",
+    "phi3",
+    "phi4",
+    "phi5",
+    "phi6",
+    "phi7",
+    "phi8",
+    "phi9",
+    "amp0",
+    "amp1",
+    "amp2",
+    "amp3",
+    "amp4",
+    "amp5",
+    "amp6",
+    "amp7",
+    "amp8",
+    "amp9",
+    "delta_gc_t1",
+    "delta_gc_t2",
+    "delta_gc_t3",
+    "delta_gc_t4",
+    "delta_gc_t5",
+    "delta_gc_t6",
+    "delta_gc_t7",
+    "delta_gc_t8",
+    "delta_gc_t9",
+]
+
+
+def populate_unused_parameters(
+    original_dict: dict,
+    full_parameter_list: list = SLOW_SCATTERING_PARAMETERS,
+    add_sky_params=True,
+) -> dict:
+    """Fill out a dictionary (either injection parameters or a priordict)
+    with the parameters needed for the model, but unused.
+    These are all set as 0.
+
+    Parameters
+    ==========
+    original_dict : dict
+        The dictionary to modify
+    full_parameter_list : list, optional
+        The list of parameters to fill out, defaults to those in the slow scattering SHO model
+    add_sky_params : bool
+        Whether to also add unused sky params needed by Bilby - should be turned off if a cbc model is also present
+
+    Returns
+    =======
+    dict
+        The updated dictionary with unused but necessary parameters set as 0
+    """
+    temp_dict = copy.deepcopy(original_dict)
+    for key in full_parameter_list:
+        if key not in original_dict:
+            temp_dict[key] = 0
+    if add_sky_params:
+        temp_dict["ra"] = 0
+        temp_dict["dec"] = 0
+        temp_dict["psi"] = 0
+    return temp_dict
 
 
 def slow_scattering(
@@ -229,7 +318,6 @@ def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
 def fast_scattering(
     f, A=1e-21, C1=50, f1=0.3, C2=7, f2=5, geocent_time=0, phi=0, **kwargs
 ):
-
     # get kwargs, setup ifo delay for geocent time injection purposes
     duration = kwargs["duration"]
     sampling_frequency = kwargs["sampling_frequency"]
@@ -372,8 +460,8 @@ def aux_informed(
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
-        temp_amp = locals()[f"amp{harmonic_idx-1}"]
-        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        temp_amp = locals()[f"amp{harmonic_idx - 1}"]
+        temp_phi = locals()[f"phi{harmonic_idx - 1}"]
         goft += temp_amp * np.sin(
             4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
             + temp_phi
@@ -502,8 +590,8 @@ def aux_informed_amplitude_splines(
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
-        temp_amp = locals()[f"amp{harmonic_idx-1}"]
-        temp_phi = locals()[f"phi{harmonic_idx-1}"]
+        temp_amp = locals()[f"amp{harmonic_idx - 1}"]
+        temp_phi = locals()[f"phi{harmonic_idx - 1}"]
         goft += temp_amp * np.sin(
             4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
             + temp_phi
