@@ -13,6 +13,12 @@ from bilby_pipe.utils import (
     import_module,
 )
 
+from .glitch_models import (
+    populate_unused_parameters,
+    slow_scattering,
+    SLOW_SCATTERING_PARAMETERS,
+)
+
 
 class GlitchInput(Input):
     """Superclass of input handlers - with glitch additions"""
@@ -134,8 +140,16 @@ class GlitchInput(Input):
 
         if self.prior_dict is not None:
             priors = prior_class(dictionary=self.prior_dict)
-        else:
+        elif self.prior_file is not None:
             priors = prior_class(filename=self.prior_file)
+        elif self.likelihood_is_joint:
+            priors = prior_class(dictionary={})
+            # A special case when likelihood is joint, and we can set blank CBC priors
+            # This keeps bilby happy without having to pass an extra file
+            priors["ra"] = 0
+            priors["dec"] = 0
+            priors["psi"] = 0
+            priors["geocent_time"] = 0
 
         priors = self._update_default_prior_to_sky_frame_parameters(priors)
 
@@ -165,6 +179,15 @@ class GlitchInput(Input):
                     )
 
                 glitch_prior = prior_class(filename=prior_file)
+
+                if hasattr(self, "joint_waveform_generator_source_models"):
+                    if (
+                        self.joint_waveform_generator_source_models[index_name]
+                        == slow_scattering
+                    ):
+                        glitch_prior = populate_unused_parameters(
+                            glitch_prior, full_parameter_list=SLOW_SCATTERING_PARAMETERS
+                        )
 
                 # Now, the special bit for our purposes: add designator information for the glitch
                 glitch_named_prior = dict()

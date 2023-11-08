@@ -25,6 +25,7 @@ from bilby_pipe.data_analysis import (
 from .pipe_input import GlitchInput
 from .pipe_parser import glitch_create_parser
 from .result import JointCBCGlitchResult
+from .glitch_models import _blank_frequency_domain_source_model
 
 
 class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
@@ -64,6 +65,9 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
                 args.joint_waveform_generator_model_args
             )
             self.joint_waveform_generator_classes = args.joint_waveform_generators
+
+        if self.frequency_domain_source_model == _blank_frequency_domain_source_model:
+            self.distance_marginalization = False
 
     @property
     def result_class(self):

@@ -6,7 +6,7 @@ from bilby.core.utils import nfft
 
 logger = logging.getLogger(__name__)
 
-SLOW_SCATTERING_PARAMETERS = [
+SLOW_SCATTERING_EXTENDED_PARAMETERS = [
     "geocent_time",
     "f_diff",
     "f_harm0",
@@ -61,10 +61,38 @@ SLOW_SCATTERING_PARAMETERS = [
 ]
 
 
+SLOW_SCATTERING_PARAMETERS = [
+    "geocent_time",
+    "harmonic_frequency_delta",
+    "base_harmonic_frequency",
+    "modulation_frequency",
+    "phi_0",
+    "phi_1",
+    "phi_2",
+    "phi_3",
+    "phi_4",
+    "phi_5",
+    "phi_6",
+    "phi_7",
+    "phi_8",
+    "phi_9",
+    "amplitude_0",
+    "amplitude_1",
+    "amplitude_2",
+    "amplitude_3",
+    "amplitude_4",
+    "amplitude_5",
+    "amplitude_6",
+    "amplitude_7",
+    "amplitude_8",
+    "amplitude_9",
+]
+
+
 def populate_unused_parameters(
     original_dict: dict,
     full_parameter_list: list = SLOW_SCATTERING_PARAMETERS,
-    add_sky_params=True,
+    add_sky_params=False,
 ) -> dict:
     """Fill out a dictionary (either injection parameters or a priordict)
     with the parameters needed for the model, but unused.
