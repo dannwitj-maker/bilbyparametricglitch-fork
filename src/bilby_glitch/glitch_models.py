@@ -185,7 +185,7 @@ def slow_scattering(
     Returns
     =======
     strain_dict : dict
-        Contains 'plus' => the compute strain and 'cross' => 0s in the appropriate shame, as a dummy
+        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
     """
     # set number of arches to loop over
     if not kwargs.keys():
@@ -808,6 +808,8 @@ def anti_glitch(
 
     Returns
     =======
+    strain_dict : dict
+        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
     """
 
     # get kwargs, setup ifo delay for geocent time injection purposes
@@ -828,3 +830,41 @@ def anti_glitch(
     htilde = htilde_temp * np.exp(-2 * np.pi * 1j * f * (time_to_rotate_base))
 
     return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
+
+
+def posterior_waveforms(f: np.ndarray, draw: int, **kwargs):
+    """Draw a realization from a posterior of glitch realizations, computed in some previous Bayesian inference process.
+
+    Parameters
+    ==========
+    f : np.ndarray
+        The frequency array for the data
+    draw : int
+        The index of the draw to use
+    **kwargs:
+        duration : int
+            Duration of the segment in seconds, should be multiple of 2
+        sampling_frequency : int
+            The sampling rate of the data, should be a multiple of 2
+        time_array : np.ndarray
+            Precomputed time array corresponding to the data characteristics, passed for efficiency
+        bayeswave_realizations : np.ndarray
+            Precomputed glitch realizations to draw from
+        glitch_mode_name : str
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+
+    Returns
+    =======
+    strain_dict : dict
+        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
+    """
+
+    # bayeswave_realizations = kwargs["bayeswave_realizations"]
+    # Get a specific FD realization from the pre-loaded set of all realizations
+    # glitch_realization = bayeswave_realizations[draw, :]
+
+    # Do some time/frequency manipulation garbage to appease bilby, maybe
+
+    # return {kwargs["glitch_mode_name"]: glitch_realization,
+    # "plus": glitch_realization * 0, "cross": glitch_realization * 0}
+    pass

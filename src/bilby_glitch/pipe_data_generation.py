@@ -197,7 +197,11 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                     if index_name in key:
                         # The case that this is a param corresponding to this glitch
                         new_key = key.split(index_name)[-1].strip("_")
-                        if "time" in new_key:
+                        if "time" in new_key and "geocent" not in new_key:
+                            if "geocent_time" in self.injection_parameters.keys():
+                                raise KeyError(
+                                    "geocent_time and detector time are being set simultaneously: something's wrong!"
+                                )
                             ifo = new_key.split("_")[0]
                             inteferometer = bilby.gw.detector.get_empty_interferometer(
                                 ifo

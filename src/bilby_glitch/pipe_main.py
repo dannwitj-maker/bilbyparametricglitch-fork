@@ -35,6 +35,8 @@ class GlitchMainInput(GlitchInput, MainInput):
             self.joint_prior_files = args.joint_prior_files
             self.joint_prior_defaults = args.joint_prior_defaults
 
+        self.injection_is_joint = args.injection_is_joint
+
         if perform_checks:
             self.check_source_model(args)
             self.check_calibration_prior_boundary(args)
@@ -97,6 +99,7 @@ class GlitchMainInput(GlitchInput, MainInput):
                 extension="dat",
                 default_prior=self.default_prior,
                 joint_prior_files=self.joint_prior_files,
+                injection_is_joint=self.injection_is_joint,
             )
             self.injection_file = default_injection_file_name
 

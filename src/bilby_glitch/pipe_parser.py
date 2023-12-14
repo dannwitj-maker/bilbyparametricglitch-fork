@@ -79,7 +79,7 @@ def glitch_create_parser(top_level=True):
         "indexed by glitch index name",
     )
     injection_parser.add(
-        "--injection-frequency-domain-source-model",
+        "--joint-injection-frequency-domain-source-model",
         default=None,
         type=nonestr,
         help=(

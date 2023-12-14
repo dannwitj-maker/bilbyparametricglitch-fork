@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from gwpy.timeseries import TimeSeries
 
@@ -57,3 +58,90 @@ class GlitchWaveformGenerator(WaveformGenerator):
             waveform_arguments=waveform_arguments,
         )
         self.waveform_arguments["time_array"] = self.time_array
+
+
+class NegativeWaveformGenerator(WaveformGenerator):
+    def __init__(
+        self,
+        parent=None,
+        duration=None,
+        sampling_frequency=None,
+        start_time=0,
+        frequency_domain_source_model=None,
+        time_domain_source_model=None,
+        parameters=None,
+        parameter_conversion=None,
+        waveform_arguments=None,
+    ):
+        if parent is not None:
+            self.__dict__ = parent.__dict__.copy()
+        else:
+            super(NegativeWaveformGenerator, self).__init__(
+                duration,
+                sampling_frequency,
+                start_time,
+                frequency_domain_source_model,
+                time_domain_source_model,
+                parameters,
+                parameter_conversion,
+                waveform_arguments,
+            )
+
+    def frequency_domain_strain(self, parameters=None):
+        base_fd_strain = super().frequency_domain_strain(parameters)
+        negative_fd_strain = {key: -1 * val for key, val in base_fd_strain.items()}
+        return negative_fd_strain
+
+
+class InjectionResidualWaveformGenerator(WaveformGenerator):
+    def __init__(
+        self,
+        injection_parameters,
+        parent=None,
+        duration=None,
+        sampling_frequency=None,
+        start_time=0,
+        frequency_domain_source_model=None,
+        time_domain_source_model=None,
+        parameters=None,
+        parameter_conversion=None,
+        waveform_arguments=None,
+    ):
+        if parent is not None:
+            self.__dict__ = parent.__dict__.copy()
+        else:
+            super(InjectionResidualWaveformGenerator, self).__init__(
+                duration,
+                sampling_frequency,
+                start_time,
+                frequency_domain_source_model,
+                time_domain_source_model,
+                parameters,
+                parameter_conversion,
+                waveform_arguments,
+            )
+        self.injection_parameters = injection_parameters
+
+    @property
+    def injection_parameters(self) -> pd.DataFrame:
+        """The parameters of the injection to take the residual against"""
+        return self._injection_parameters
+
+    @injection_parameters.setter
+    def injection_parameters(self, injection_parameters: pd.DataFrame) -> None:
+        self._injection_parameters = injection_parameters
+
+    def frequency_domain_strain(self, parameters=None):
+        injection_fd_strain = super().frequency_domain_strain(self.injection_parameters)
+        # get_detector_response will apply a timeshift based on *sample* parameters
+        # so, proactively timeshift injection_fd_strain by the time difference
+        dt = self.injection_parameters["geocent_time"] - parameters["geocent_time"]
+        for mode, waveform in injection_fd_strain.items():
+            injection_fd_strain[mode] = waveform * np.exp(
+                -1j * 2 * np.pi * dt * self.frequency_array
+            )
+        estimated_fd_strain = super().frequency_domain_strain(parameters)
+        return {
+            key: injection_fd_strain[key] - val
+            for key, val in estimated_fd_strain.items()
+        }

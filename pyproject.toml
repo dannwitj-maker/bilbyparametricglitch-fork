@@ -23,7 +23,17 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "bilby",
+    "bilby_pipe",
+]
 dynamic = ["version"]
+
+[project.scripts]
+    glitch_bilby_pipe = "bilby_glitch:glitch_bilby_pipe"
+    glitch_bilby_pipe_analysis = "bilby_glitch:glitch_bilby_pipe_analysis"
+    glitch_bilby_pipe_generation = "bilby_glitch:glitch_bilby_pipe_generation"
+    glitch_bilby_pipe_create_injection_file = "bilby_glitch:glitch_bilby_pipe_create_injection_file"
 
 [tool.setuptools.dynamic]
 version = {attr = "bilby_glitch._version.__version__"}
