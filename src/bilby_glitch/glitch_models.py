@@ -2,11 +2,25 @@ import logging
 import numpy as np
 import copy
 from scipy.signal.windows import tukey
+from scipy.signal import savgol_filter
+from scipy.integrate import cumtrapz
 from bilby.core.utils import nfft
+
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
-SLOW_SCATTERING_EXTENDED_PARAMETERS = [
+if TYPE_CHECKING:
+    import gwpy
+
+################################################################################
+################################################################################
+####################   Utility Functions and Definitions    ####################
+################################################################################
+################################################################################
+
+
+SLOW_SCATTERING_ORIGINAL_PARAMETERS = [
     "geocent_time",
     "f_diff",
     "f_harm0",
@@ -60,7 +74,6 @@ SLOW_SCATTERING_EXTENDED_PARAMETERS = [
     "delta_gc_t9",
 ]
 
-
 SLOW_SCATTERING_PARAMETERS = [
     "geocent_time",
     "harmonic_frequency_delta",
@@ -86,6 +99,12 @@ SLOW_SCATTERING_PARAMETERS = [
     "amplitude_7",
     "amplitude_8",
     "amplitude_9",
+]
+
+SLOW_SCATTERING_SHIFTING_PARAMETERS = SLOW_SCATTERING_PARAMETERS + [
+    "modulation_frequency_shift",
+    "taper_central_time",
+    "taper_time_scale",
 ]
 
 
@@ -121,6 +140,169 @@ def populate_unused_parameters(
         temp_dict["dec"] = 0
         temp_dict["psi"] = 0
     return temp_dict
+
+
+def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
+    """A placeholder for when no CBC is passed to a joint analysis"""
+    return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
+
+
+def taper_on(t: np.array, taper_central_time: float, taper_time_scale: float):
+    """Returns a logistic function, going from off (0) to on (1) smoothly
+
+    Parameters
+    ==========
+    t : np.array
+        The sample time array
+    taper_central_time : float
+        The midpoint of the logistic function
+    taper_time_scale : float
+        The characteristic time scale of the logistic function
+
+    Returns
+    =======
+    np.array
+        The smooth logistic function turning on
+    """
+    return 1 / (1 + np.exp((taper_central_time - t) / taper_time_scale))
+
+
+def taper_off(t: np.array, taper_central_time: float, taper_time_scale: float):
+    """Returns a logistic function, going from on (1) to off (0) smoothly
+
+    Parameters
+    ==========
+    t : np.array
+        The sample time array
+    taper_central_time : float
+        The midpoint of the logistic function
+    taper_time_scale : float
+        The characteristic time scale of the logistic function
+
+    Returns
+    =======
+    np.array
+        The smooth logistic function turning off
+    """
+    return 1 / (1 + np.exp((t - taper_central_time) / taper_time_scale))
+
+
+################################################################################
+################################################################################
+###############################   f(t) Models    ###############################
+################################################################################
+################################################################################
+
+
+def slow_scattering_f_of_t(
+    t: np.array,
+    central_time: float,
+    modulation_frequency: float,
+    harmonic_frequency: float,
+):
+    """Returns arch frequency as a function of time for a parameterized slow scattering model
+
+    Parameters
+    ==========
+    t : np.array
+        The time array over which to evaluate the frequency
+    central_time : float
+        The central time (time of peak frequency) for the arch
+    modulation_frequency : float
+        The driving (microseism) frequency
+    harmonic_frequency : float
+        The peak frequency of the arch
+
+    Returns
+    =======
+    np.array
+        The frequency of the arch at sampled times
+    """
+    return harmonic_frequency * np.cos(
+        2 * np.pi * modulation_frequency * (t - central_time)
+    )
+
+
+def slow_scattering_shifting_modulation_f_of_t(
+    t: np.array,
+    central_time: float,
+    modulation_frequency: float,
+    modulation_frequency_shift: float,
+    harmonic_frequency: float,
+    taper_central_time: float,
+    taper_time_scale: float,
+):
+    """Gets the slow scattering frequency with a smooth shift from initial to final modulation frequency
+
+    Parameters
+    ==========
+    t : np.array
+        The time array over which to evaluate the frequency
+    central_time : float
+        The central time (time of peak frequency) for the arch
+    modulation_frequency : float
+        The initial driving (microseism) frequency
+    modulation_frequency_shift : float
+        The ratio between initial and final modulation frequency
+    harmonic_frequency : float
+        The peak frequency of the arch
+    taper_central_time : float
+        The midpoint of the logistic function
+    taper_time_scale : float
+        The characteristic time scale of the logistic function
+
+    Returns
+    =======
+    np.array
+        The sum of the two frequency arches, with a smooth handoff
+    """
+    initial_function = slow_scattering_f_of_t(
+        t=t,
+        central_time=central_time,
+        modulation_frequency=modulation_frequency,
+        harmonic_frequency=harmonic_frequency,
+    ) * taper_off(
+        t=t, taper_central_time=taper_central_time, taper_time_scale=taper_time_scale
+    )
+    final_function = slow_scattering_f_of_t(
+        t=t,
+        central_time=central_time,
+        modulation_frequency=modulation_frequency * modulation_frequency_shift,
+        harmonic_frequency=harmonic_frequency * modulation_frequency_shift,
+    ) * taper_on(
+        t=t, taper_central_time=taper_central_time, taper_time_scale=taper_time_scale
+    )
+    return initial_function + final_function
+
+
+def auxiliary_f_of_t(
+    auxiliary_timeseries: "gwpy.timeseries.TimeSeries", scale: float
+) -> np.array:
+    """Returns the frequency of the base fringe given an auxiliary timeseries
+    and a scale coefficient.
+    Based on gwdetchar.scattering.core.get_fringe_frequency L88-114
+
+    Parameters
+    ==========
+    auxiliary_timeseries : gwpy.timeseries.TimeSeries
+        A gwpy timeseries for the auxiliary data to be extrapolated from
+    scale : float
+        A scale coefficient to multiply by f(t)
+
+    Returns
+    =======
+    np.array
+        The f(t) array predicted by the auxiliary
+    """
+    velocity = savgol_filter(auxiliary_timeseries.value, 5, 2, deriv=1)
+    return np.abs(scale * 2 / 1.064 * velocity * auxiliary_timeseries.sample_rate.value)
+
+
+################################################################################
+################################################################################
+##########################    Parameterized Models    ##########################
+################################################################################
+################################################################################
 
 
 def slow_scattering(
@@ -261,7 +443,7 @@ def slow_scattering(
     return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
 
 
-def slow_scattering_extended(
+def slow_scattering_original(
     f,
     geocent_time=0,
     f_harm0=30,
@@ -477,9 +659,158 @@ def slow_scattering_extended(
     return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
 
 
-def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
-    """A placeholder for when no CBC is passed to a joint analysis"""
-    return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
+def slow_scattering_shifting_frequency(
+    f,
+    geocent_time=0,
+    harmonic_frequency_delta=25,
+    base_harmonic_frequency=30,
+    modulation_frequency=0.5,
+    modulation_frequency_shift=1,
+    taper_central_time=0,
+    taper_time_scale=0.1,
+    phi_0=0,
+    phi_1=0,
+    phi_2=0,
+    phi_3=0,
+    phi_4=0,
+    phi_5=0,
+    phi_6=0,
+    phi_7=0,
+    phi_8=0,
+    phi_9=0,
+    amplitude_0=1e-21,
+    amplitude_1=0,
+    amplitude_2=0,
+    amplitude_3=0,
+    amplitude_4=0,
+    amplitude_5=0,
+    amplitude_6=0,
+    amplitude_7=0,
+    amplitude_8=0,
+    amplitude_9=0,
+    **kwargs,
+):
+    """
+    Returns frequency domain strain associated with a set of slow scattering arches
+
+    Parameters
+    -----------
+    f : np.array
+        The frequencies array for the data, should satisfy associated conditions with duration and sampling rate of data
+    geocent_time : float
+        The geocenter time to center the 0th arch at, and optionally all other arches as well
+    base_harmonic_frequency : float
+        The harmonic frequency (i.e. maximum frequency reached) for the 0th arch
+    harmonic_frequency_delta : float
+        The expected difference in harmonic frequency between the ith and i+1th arch
+    modulation_frequency : float
+        The modulation frequency of the scattering arches
+    modulation_frequency_shift : float
+        The ratio of final modulation frequency to initial modulation frequency
+    taper_central_time : float
+        The central time of the logistic tapering function
+    taper_time_scale : float
+        The characteristic time scale of the logistic tapering function
+    phi_{i} : float
+        {i} runs over 0-9, the phase of the ith arch
+    amplitude_{i} : float
+        {i} runs over 0-9, the amplitude of the ith arch
+    **kwargs
+        number_harmonics : int
+            Number of arches to loop over - default 1 implies only 0th arch
+        duration : int
+            Duration of the segment in seconds, should be multiple of 2
+        sampling_frequency : int
+            The sampling rate of the data, should be a multiple of 2
+        time_array :
+            Precomputed time array corresponding to the data characteristics, passed for efficiency
+        glitch_mode_name : str
+            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
+
+    Returns
+    =======
+    strain_dict : dict
+        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
+    """
+    # set number of arches to loop over
+    if not kwargs.keys():
+        n_harmonics = 1
+    else:
+        n_harmonics = kwargs["number_harmonics"]
+
+    # get kwargs, setup ifo delay for geocent time injection purposes
+    duration = kwargs["duration"]
+    sampling_frequency = kwargs["sampling_frequency"]
+    segment_start_time = kwargs["start_time"]
+
+    time_to_rotate_base = -duration / 2
+    # bilby assumes that the segment starts at start time and rotates accordingly
+    # see https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/gw/detector/interferometer.py#L309 through L313
+    # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
+
+    # if possible preload array
+    if "time_array" in kwargs.keys():
+        t = kwargs["time_array"]
+        if t[0] != 0:
+            t -= segment_start_time
+    else:
+        # make a time space
+        t = np.linspace(0, duration, duration * sampling_frequency)
+
+    f_of_t = slow_scattering_shifting_modulation_f_of_t(
+        t=t,
+        central_time=duration / 2,
+        modulation_frequency=modulation_frequency,
+        modulation_frequency_shift=modulation_frequency_shift,
+        harmonic_frequency=base_harmonic_frequency,
+        taper_central_time=taper_central_time,
+        taper_time_scale=taper_time_scale,
+    )
+
+    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
+
+    # get hoft of 0th arch
+    # note - generates initially in the center of the time array, to prevent weirdness with the window
+    # this will get shifted appropriately later
+    hoft_temp = amplitude_0 * np.sin(base_phi_of_t + phi_0)
+
+    for harmonic_idx in range(1, n_harmonics):
+        # fetch variables by index
+        temp_amp = locals()[f"amplitude_{harmonic_idx}"]
+        temp_phi = locals()[f"phi_{harmonic_idx}"]
+
+        temp_f_harm = base_harmonic_frequency + harmonic_idx * harmonic_frequency_delta
+
+        # get hoft for this arch
+        hoft_temp += temp_amp * np.sin(
+            (temp_f_harm / base_harmonic_frequency) * base_phi_of_t + temp_phi
+        )
+
+    # Determine and apply window, centered on duration / 2
+    # This window is necessary because our equation describes an infinite set of arches
+    # But naturally we only want to fit for one
+    # Get the window - centered at the arches center, total width of 1 / 2 / fmod0
+    window_low = duration / 2 - 0.25 / modulation_frequency
+    window_high = duration / 2 + 0.25 / modulation_frequency
+    window_idxs = np.argwhere((t > window_low) & (t < window_high))
+    tukey_window = tukey(window_idxs.flatten().shape[0], alpha=0.2)
+    hoft_temp[window_idxs.flatten()] *= tukey_window
+    outside_window_mask = np.zeros(hoft_temp.shape, dtype=bool)
+    outside_window_mask[window_idxs] = True
+    hoft_temp[~outside_window_mask] = 0
+
+    hoft = hoft_temp
+
+    # FFT our TD waveform
+    htilde_temp = nfft(hoft, sampling_frequency)
+    # Apply a shift so that it's where bilby expects it to be rather than in the center of the segment
+    htilde_shifted = htilde_temp[0] * np.exp(
+        -2 * np.pi * 1j * htilde_temp[1] * (time_to_rotate_base)
+    )
+    htilde = htilde_shifted
+
+    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
 
 
 def fast_scattering(
@@ -533,6 +864,13 @@ def fast_scattering(
     htilde = htilde_shifted
 
     return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
+
+
+################################################################################
+################################################################################
+##########################    Ingested Data Models    ##########################
+################################################################################
+################################################################################
 
 
 def aux_informed(
@@ -605,6 +943,7 @@ def aux_informed(
     sampling_frequency = kwargs["sampling_frequency"]
     segment_start_time = kwargs["start_time"]
     aux_time_series = kwargs["aux_time_series"]
+    post_trigger_duration = kwargs["post_trigger_duration"]
 
     # if possible preload array
     if "time_array" in kwargs.keys():
@@ -623,21 +962,21 @@ def aux_informed(
     aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
     # Make goft
     goft = np.zeros(t.shape)
+    f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
     # Add up each arch
+    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
         temp_amp = locals()[f"amp{harmonic_idx - 1}"]
         temp_phi = locals()[f"phi{harmonic_idx - 1}"]
-        goft += temp_amp * np.sin(
-            4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
-            + temp_phi
-        )
+        goft += temp_amp * np.sin(harmonic_idx * base_phi_of_t + temp_phi)
 
     goft *= tukey(goft.shape[0], alpha=0.2)
 
     gtilde, frequencies = nfft(goft, sampling_frequency=sampling_frequency)
-    gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
+    gtilde *= np.exp(-2 * np.pi * 1j * frequencies * post_trigger_duration)
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
 
@@ -754,15 +1093,16 @@ def aux_informed_amplitude_splines(
     # Make goft
     goft = np.zeros(t.shape)
     # Add up each arch
+    f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
+    # Add up each arch
+    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):
         # fetch variables by index
         temp_amp = locals()[f"amp{harmonic_idx - 1}"]
         temp_phi = locals()[f"phi{harmonic_idx - 1}"]
-        goft += temp_amp * np.sin(
-            4 * np.pi / 1.064 * scale * harmonic_idx * aux_time_series_resampled.value
-            + temp_phi
-        )
+        goft += temp_amp * np.sin(harmonic_idx * base_phi_of_t + temp_phi)
 
     amplitude_spline_values = np.zeros((number_splines,))
     for ii in range(number_splines):
@@ -781,55 +1121,6 @@ def aux_informed_amplitude_splines(
     gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
-
-
-def anti_glitch(
-    f: np.ndarray, A: float, phi: float, f0: float, gamma: float, t0: float, **kwargs
-):
-    """Implement the antiglitch model for short duration glitches
-    arXiv:2309.06594 [astro-ph, physics:gr-qc]
-
-    Parameters
-    ==========
-    f : np.ndarray,
-        The array of frequencies to evaluate the waveform at
-    A : float
-        The amplitude of the glitch
-        Note that we don't include the normalization factor used in Bondarescu+
-        Instead this just has range ~10^-21
-    phi : float
-        The overall phase of the glitch
-    f0 : float
-        The peak frequency of the glitch
-    gamma : float
-        The damping constant of the damping part of the glitch
-    t0 : float
-        The central time of the glitch
-
-    Returns
-    =======
-    strain_dict : dict
-        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
-    """
-
-    # get kwargs, setup ifo delay for geocent time injection purposes
-    duration = kwargs["duration"]
-
-    time_to_rotate_base = -duration / 2
-    # bilby assumes that the segment starts at start time and rotates accordingly
-    # see https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/gw/detector/interferometer.py#L309 through L313
-    # we generate in the middle of the segment, so rotate it back to the beginning then let bilby do this
-
-    htilde_temp = (
-        A
-        * np.exp(-gamma * (np.log(f) - np.log(f0)) ** 2 / 2)
-        * np.exp(1j * phi - 2 * np.pi * 1j * f * t0)
-    )
-
-    # A time shift - first, to the beginning / end of the data segment, then backwards to the ifo_time
-    htilde = htilde_temp * np.exp(-2 * np.pi * 1j * f * (time_to_rotate_base))
-
-    return {kwargs["glitch_mode_name"]: htilde, "plus": htilde * 0, "cross": htilde * 0}
 
 
 def posterior_waveforms(f: np.ndarray, draw: int, **kwargs):

@@ -107,6 +107,7 @@ def plot_spectrogram(
     fig=None,
     ax=None,
     whiten=True,
+    cmap="viridis",
 ) -> Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
     # Make a spectrogram
     qspecgram = timeseries.q_transform(
@@ -123,7 +124,7 @@ def plot_spectrogram(
         fig, ax = plt.subplots(figsize=figsize)
 
     colormesh = ax.pcolormesh(
-        qspecgram, vmin=0, vmax=spectrogram_color_maximum, cmap="viridis"
+        qspecgram, vmin=0, vmax=spectrogram_color_maximum, cmap=cmap, rasterized=True
     )
 
     divider = make_axes_locatable(ax)
@@ -171,6 +172,7 @@ def plot_interferometer_reconstruction(
     plot_residual_generator: Optional[bool] = False,
     plot_start_time: Optional[float] = None,
     plot_end_time: Optional[float] = None,
+    spectrogram_cmap="viridis",
 ) -> matplotlib.figure.Figure | None:
     """
     Plot the posterior for the waveform in the frequency domain and
@@ -447,6 +449,7 @@ def plot_interferometer_reconstruction(
                 fig=fig,
                 ax=axs[0],
                 whiten=(not PLOT_RESIDUAL_DATA),
+                cmap=spectrogram_cmap,
             )
 
         else:

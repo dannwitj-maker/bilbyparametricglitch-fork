@@ -17,6 +17,8 @@ from .glitch_models import (
     populate_unused_parameters,
     slow_scattering,
     SLOW_SCATTERING_PARAMETERS,
+    slow_scattering_shifting_frequency,
+    SLOW_SCATTERING_SHIFTING_PARAMETERS,
 )
 
 
@@ -167,7 +169,9 @@ class GlitchInput(Input):
             self.joint_priors = dict()
             for index_name, prior_file in self.joint_prior_files.items():
                 # Do the above procedure, over each prior in the joint prior dict
-                assert index_name in self.joint_prior_defaults
+                assert (
+                    index_name in self.joint_prior_defaults
+                ), self.joint_prior_defaults
                 prior_default = self.joint_prior_defaults[index_name]
                 if prior_default in self.combined_default_prior_dicts.keys():
                     prior_class = self.combined_default_prior_dicts[prior_default]
@@ -187,6 +191,14 @@ class GlitchInput(Input):
                     ):
                         glitch_prior = populate_unused_parameters(
                             glitch_prior, full_parameter_list=SLOW_SCATTERING_PARAMETERS
+                        )
+                    if (
+                        self.joint_waveform_generator_source_models[index_name]
+                        == slow_scattering_shifting_frequency
+                    ):
+                        glitch_prior = populate_unused_parameters(
+                            glitch_prior,
+                            full_parameter_list=SLOW_SCATTERING_SHIFTING_PARAMETERS,
                         )
 
                 # Now, the special bit for our purposes: add designator information for the glitch

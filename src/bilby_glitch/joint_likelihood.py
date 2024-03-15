@@ -410,25 +410,26 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
         for glitch_name, glitch_generator in glitch_generators.items():
             # glitch mode_names will look like glitch_{ifo}_{glitch_name}
             ifo = glitch_generator.waveform_arguments["glitch_mode_name"].split("_")[1]
-            assert (
-                f"glitch_{glitch_name}_{ifo}_time" in priors.keys()
-            ), "Must set ifo time prior"
-            priors[f"glitch_{glitch_name}_geocent_time"] = copy.copy(
-                priors[f"glitch_{glitch_name}_{ifo}_time"]
-            )
-            # Fiducial glitch "sky location" is ra=dec=0
-            inteferometer = get_empty_interferometer(ifo)
-            # We are converting from IFO time to geocenter time, so a -1 should be applied
-            # Since the geocent prior will be small
-            # we can just use the minimum for computing delay and this is basically correct
-            time_shift = -1 * inteferometer.time_delay_from_geocenter(
-                0, 0, priors[f"glitch_{glitch_name}_geocent_time"].minimum
-            )
-            priors[f"glitch_{glitch_name}_geocent_time"].minimum += time_shift
-            priors[f"glitch_{glitch_name}_geocent_time"].maximum += time_shift
-            priors[f"glitch_{glitch_name}_geocent_time"].name = "geocent_time"
-            priors[f"glitch_{glitch_name}_geocent_time"].latex_label = r"$t_{gc}$"
-            priors.pop(f"glitch_{glitch_name}_{ifo}_time")
+            if f"glitch_{glitch_name}_{ifo}_time" in priors.keys():
+                priors[f"glitch_{glitch_name}_geocent_time"] = copy.copy(
+                    priors[f"glitch_{glitch_name}_{ifo}_time"]
+                )
+                # Fiducial glitch "sky location" is ra=dec=0
+                inteferometer = get_empty_interferometer(ifo)
+                # We are converting from IFO time to geocenter time, so a -1 should be applied
+                # Since the geocent prior will be small
+                # we can just use the minimum for computing delay and this is basically correct
+                time_shift = -1 * inteferometer.time_delay_from_geocenter(
+                    0, 0, priors[f"glitch_{glitch_name}_geocent_time"].minimum
+                )
+                priors[f"glitch_{glitch_name}_geocent_time"].minimum += time_shift
+                priors[f"glitch_{glitch_name}_geocent_time"].maximum += time_shift
+                priors[f"glitch_{glitch_name}_geocent_time"].name = "geocent_time"
+                priors[f"glitch_{glitch_name}_geocent_time"].latex_label = r"$t_{gc}$"
+                priors.pop(f"glitch_{glitch_name}_{ifo}_time")
+        assert (
+            f"glitch_{glitch_name}_geocent_time" in priors.keys()
+        ), "Must set a glitch time prior"
         return priors
 
     def compute_log_likelihood_from_snrs(self, total_snrs):

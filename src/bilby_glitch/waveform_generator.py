@@ -48,6 +48,13 @@ class GlitchWaveformGenerator(WaveformGenerator):
             )
             waveform_arguments["spline_interp_times"] = spline_interp_times
 
+        if (
+            "aux_time_series" in waveform_arguments
+            and "post_trigger_duration" not in waveform_arguments
+        ):
+            # Default to bilby default of 2
+            waveform_arguments["post_trigger_duration"] = 2
+
         super(GlitchWaveformGenerator, self).__init__(
             duration=duration,
             sampling_frequency=sampling_frequency,
