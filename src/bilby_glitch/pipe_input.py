@@ -455,6 +455,7 @@ class GlitchInput(Input):
                     waveform_arguments=self.joint_injection_waveform_generator_model_kwargs[
                         index_name
                     ],
+                    direct_injection=True,
                     **self.joint_injection_waveform_generator_kwargs[index_name],
                 )
                 logger.info(f"For glitch {index_name}:")

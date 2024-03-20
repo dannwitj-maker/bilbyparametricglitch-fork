@@ -15,6 +15,7 @@ class GlitchWaveformGenerator(WaveformGenerator):
         glitch_interferometer,
         duration,
         sampling_frequency,
+        direct_injection=False,
         start_time=0,
         frequency_domain_source_model=None,
         parameters=None,
@@ -25,9 +26,12 @@ class GlitchWaveformGenerator(WaveformGenerator):
         waveform_arguments["duration"] = duration
         waveform_arguments["sampling_frequency"] = sampling_frequency
         waveform_arguments["start_time"] = start_time
-        waveform_arguments[
-            "glitch_mode_name"
-        ] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
+        if direct_injection:
+            waveform_arguments["glitch_mode_name"] = glitch_interferometer
+        else:
+            waveform_arguments[
+                "glitch_mode_name"
+            ] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
         if parameter_conversion is None:
             parameter_conversion = identity_map_conversion
         if "aux_channel" in waveform_arguments:
