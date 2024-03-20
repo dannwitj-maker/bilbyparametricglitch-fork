@@ -63,6 +63,21 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                     setattr(self, key, other)
             return self
 
+        def snrs_as_sample(self) -> dict:
+            """Get the SNRs of this object as a sample dictionary
+
+            Returns
+            =======
+            dict
+                The dictionary of SNRs labelled accordingly
+            """
+            return {
+                "gw_matched_filter_snr": self.complex_matched_filter_gw_snr,
+                "gw_optimal_snr": self.optimal_gw_snr_squared.real**0.5,
+                "glitch_matched_filter_snr": self.complex_matched_filter_glitch_snr,
+                "glitch_optimal_snr": self.optimal_glitch_snr_squared.real**0.5,
+            }
+
     def __init__(
         self,
         interferometers,
@@ -503,46 +518,3 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                     )
                 )
         return metadata_dict
-
-    def add_interferometer_snrs_to_sample(
-        ifo: Interferometer, ifo_index: int, new_samples: list, sample: Any
-    ) -> None:
-        """For use in gw.conversion.compute_snrs().
-        Also does computation for glitch SNRs.
-
-        Parameters
-        ==========
-        ifo : bilby.gw.interferometer.Interferometer
-            The interferometer object for which to compute SNRs
-        ifo_index : int
-            The index of the IFO within likelihood.interferometers, for indexing of new_samples
-        new_samples : list
-            The output of _compute_snrs which contains SNRs
-        sample : Any
-            The sample from the posterior for which SNRs are being computed
-        """
-        gw_matched_filter_snrs = list()
-        glitch_matched_filter_snrs = list()
-        gw_optimal_snrs = list()
-        glitch_optimal_snrs = list()
-        gw_mf_key = f"{ifo.name}_gw_matched_filter_snr"
-        glitch_mf_key = f"{ifo.name}_glitch_matched_filter_snr"
-        gw_optimal_key = f"{ifo.name}_gw_optimal_snr"
-        glitch_optimal_key = f"{ifo.name}_glitch_optimal_snr"
-        for new_sample in new_samples:
-            gw_matched_filter_snrs.append(
-                new_sample[ifo_index].complex_matched_filter_gw_snr
-            )
-            gw_optimal_snrs.append(
-                new_sample[ifo_index].optimal_gw_snr_squared.real ** 0.5
-            )
-            glitch_matched_filter_snrs.append(
-                new_sample[ifo_index].complex_matched_filter_glitch_snr
-            )
-            glitch_optimal_snrs.append(
-                new_sample[ifo_index].optimal_glitch_snr_squared.real ** 0.5
-            )
-        sample[gw_mf_key] = gw_matched_filter_snrs
-        sample[gw_optimal_key] = gw_optimal_snrs
-        sample[glitch_mf_key] = glitch_matched_filter_snrs
-        sample[glitch_optimal_key] = glitch_optimal_snrs
