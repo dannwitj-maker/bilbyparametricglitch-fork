@@ -333,6 +333,7 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                     dict(
                         ra=0,
                         dec=0,
+                        psi=0,
                         geocent_time=self.parameters[
                             f"glitch_{glitch_name}_geocent_time"
                         ],
