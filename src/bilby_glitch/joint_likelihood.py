@@ -63,6 +63,7 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                     setattr(self, key, other)
             return self
 
+        @property
         def snrs_as_sample(self) -> dict:
             """Get the SNRs of this object as a sample dictionary
 
