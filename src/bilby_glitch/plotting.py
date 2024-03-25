@@ -63,6 +63,10 @@ def get_fd_and_td_whitened_waveform_posterior(
         parameters["dec"] = np.zeros_like([x for x in parameters.values()][0])
         parameters["psi"] = np.zeros_like([x for x in parameters.values()][0])
 
+        waveform_generator.waveform_arguments[
+            "glitch_mode_name"
+        ] = waveform_generator.waveform_arguments["glitch_mode_name"].split("_")[1]
+
         posterior = pd.DataFrame(parameters)
 
     if n_samples is None:
@@ -124,7 +128,12 @@ def plot_spectrogram(
         fig, ax = plt.subplots(figsize=figsize)
 
     colormesh = ax.pcolormesh(
-        qspecgram, vmin=0, vmax=spectrogram_color_maximum, cmap=cmap, rasterized=True
+        qspecgram,
+        vmin=0,
+        vmax=spectrogram_color_maximum,
+        cmap=cmap,
+        rasterized=True,
+        norm="linear",
     )
 
     divider = make_axes_locatable(ax)
@@ -134,7 +143,7 @@ def plot_spectrogram(
     ax.grid(visible=True, which="minor")
     ax.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(10))
     ax.yaxis.set_minor_formatter("{y:.0f}")
-    ax.set_yscale("log")
+    ax.set_yscale("linear")
     if title is not None:
         ax.set_title(title)
 
