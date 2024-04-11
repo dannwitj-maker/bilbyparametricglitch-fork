@@ -50,6 +50,7 @@ def get_fd_and_td_whitened_waveform_posterior(
     time_idxs: np.ndarray,
     prefix: str | None = None,
     n_samples: int | None = None,
+    seed: int | None = None,
 ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
 
     if prefix is not None:
@@ -63,9 +64,10 @@ def get_fd_and_td_whitened_waveform_posterior(
         parameters["dec"] = np.zeros_like([x for x in parameters.values()][0])
         parameters["psi"] = np.zeros_like([x for x in parameters.values()][0])
 
-        waveform_generator.waveform_arguments[
-            "glitch_mode_name"
-        ] = waveform_generator.waveform_arguments["glitch_mode_name"].split("_")[1]
+        if "_" in waveform_generator.waveform_arguments["glitch_mode_name"]:
+            waveform_generator.waveform_arguments[
+                "glitch_mode_name"
+            ] = waveform_generator.waveform_arguments["glitch_mode_name"].split("_")[1]
 
         posterior = pd.DataFrame(parameters)
 
@@ -78,7 +80,7 @@ def get_fd_and_td_whitened_waveform_posterior(
         )
         samples = copy.deepcopy(posterior)
     else:
-        samples = posterior.sample(n_samples, replace=False)
+        samples = posterior.sample(n_samples, replace=False, random_state=seed)
 
     fd_waveforms = list()
     td_waveforms = list()
@@ -112,6 +114,7 @@ def plot_spectrogram(
     ax=None,
     whiten=True,
     cmap="viridis",
+    scale="log",
 ) -> Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
     # Make a spectrogram
     qspecgram = timeseries.q_transform(
@@ -139,15 +142,16 @@ def plot_spectrogram(
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("top", size="5%", pad=0.225)
     fig.colorbar(colormesh, cax=cax, orientation="horizontal")
+    cax.set_xlabel("Normalized Energy", labelpad=-60)
 
     ax.grid(visible=True, which="minor")
     ax.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(10))
     ax.yaxis.set_minor_formatter("{y:.0f}")
-    ax.set_yscale("linear")
+    ax.set_yscale(scale)
     if title is not None:
         ax.set_title(title)
 
-    return fig, ax
+    return fig, ax, cax
 
 
 @latex_plot_format
@@ -182,6 +186,8 @@ def plot_interferometer_reconstruction(
     plot_start_time: Optional[float] = None,
     plot_end_time: Optional[float] = None,
     spectrogram_cmap="viridis",
+    spectrogram_timeseries=None,
+    no_legend=False,
 ) -> matplotlib.figure.Figure | None:
     """
     Plot the posterior for the waveform in the frequency domain and
@@ -439,7 +445,11 @@ def plot_interferometer_reconstruction(
                 residual_fd_data_posterior, 1 / interferometer.duration
             )
         if add_spectrogram:
-            if PLOT_RESIDUAL_DATA:
+            if spectrogram_timeseries is not None:
+                spectrogram_timeseries.times -= (
+                    interferometer.strain_data.start_time * u.s
+                )
+            elif PLOT_RESIDUAL_DATA:
                 spectrogram_timeseries = gwpy.timeseries.TimeSeries(
                     np.mean(residual_td_data_posterior, axis=0), times=plot_times
                 )
@@ -449,7 +459,7 @@ def plot_interferometer_reconstruction(
                     interferometer.strain_data.start_time * u.s
                 )
 
-            fig, axs[0] = plot_spectrogram(
+            fig, axs[0], cax = plot_spectrogram(
                 spectrogram_timeseries,
                 frequency_range=(minimum_frequency, maximum_frequency),
                 spectrogram_color_maximum=spectrogram_color_maximum,
@@ -497,6 +507,7 @@ def plot_interferometer_reconstruction(
                 color=DATA_COLOR,
                 label="ASD",
             )
+            cax = None
         if PLOT_RESIDUAL_DATA:
             axs[1].plot(
                 plot_times,
@@ -592,13 +603,15 @@ def plot_interferometer_reconstruction(
                     ),
                 )
             )
-        else:
+        elif not no_legend:
             legend_handles.append(
                 matplotlib.lines.Line2D(
                     [], [], color=DATA_COLOR, alpha=0.3, label="Data"
                 )
             )
         for ii, _ in enumerate(fd_waveforms_set):
+            if no_legend:
+                continue
             legend_handles.append(
                 matplotlib.lines.Line2D(
                     [], [], color=colors[ii], label=f"{labels[ii]} Mean reconstructed"
@@ -631,4 +644,4 @@ def plot_interferometer_reconstruction(
         rcParams["font.size"] = old_font_size
     else:
         rcParams["font.size"] = old_font_size
-        return fig
+        return fig, axs, cax
