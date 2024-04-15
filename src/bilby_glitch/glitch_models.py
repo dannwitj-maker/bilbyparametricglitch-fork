@@ -107,6 +107,16 @@ SLOW_SCATTERING_SHIFTING_PARAMETERS = SLOW_SCATTERING_PARAMETERS + [
     "taper_time_scale",
 ]
 
+FAST_SCATTERING_PARAMETERS = [
+    "amplitude",
+    "phi",
+    "microseism_frequency",
+    "microseism_coefficient",
+    "anthropogenic_frequency",
+    "anthropogenic_coefficient",
+    "geocent_time",
+]
+
 
 def populate_unused_parameters(
     original_dict: dict,
@@ -814,7 +824,15 @@ def slow_scattering_shifting_frequency(
 
 
 def fast_scattering(
-    f, A=1e-21, C1=50, f1=0.3, C2=7, f2=5, geocent_time=0, phi=0, **kwargs
+    f,
+    amplitude=1e-21,
+    microseism_coefficient=50,
+    microseism_frequency=0.3,
+    anthropogenic_coefficient=7,
+    anthropogenic_frequency=5,
+    geocent_time=0,
+    phi=0,
+    **kwargs,
 ):
     # get kwargs, setup ifo delay for geocent time injection purposes
     duration = kwargs["duration"]
@@ -835,16 +853,18 @@ def fast_scattering(
         # make a time space
         t = np.linspace(0, duration, duration * sampling_frequency)
 
-    xoft = C1 * np.sin(2 * np.pi * f1 * (t - duration / 2)) + C2 * np.sin(
-        2 * np.pi * f2 * (t - duration / 2)
+    xoft = microseism_coefficient / microseism_frequency * np.sin(
+        2 * np.pi * microseism_frequency * (t - duration / 2)
+    ) + anthropogenic_coefficient / anthropogenic_frequency * np.sin(
+        2 * np.pi * anthropogenic_frequency * (t - duration / 2)
     )
-    hoft = A * np.sin(xoft + phi)
+    hoft = amplitude * np.sin(xoft + phi)
 
     # determine and apply window, centered on duration / 2
     # This window is necessary because our equation describes an infinite set of arches
     # But naturally we only want to fit for one
     # Get the window - centered at the arches center, total width of 1 / 2 / fmod0
-    fwindow = min(f1, f2)
+    fwindow = kwargs.get("window_frequency", microseism_frequency)
     window_low = duration / 2 - 0.25 / fwindow
     window_high = duration / 2 + 0.25 / fwindow
     window_idxs = np.argwhere((t > window_low) & (t < window_high))

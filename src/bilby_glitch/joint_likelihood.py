@@ -12,6 +12,8 @@ from bilby.gw.likelihood.base import GravitationalWaveTransient
 from bilby.gw.detector import get_empty_interferometer, Interferometer
 from .glitch_models import _blank_frequency_domain_source_model
 
+from typing import TYPE_CHECKING, Any
+
 
 class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
     """A likelihood class for joint inference of glitches and gravitational waves.
@@ -60,6 +62,22 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                 elif this is None:
                     setattr(self, key, other)
             return self
+
+        @property
+        def snrs_as_sample(self) -> dict:
+            """Get the SNRs of this object as a sample dictionary
+
+            Returns
+            =======
+            dict
+                The dictionary of SNRs labelled accordingly
+            """
+            return {
+                "gw_matched_filter_snr": self.complex_matched_filter_gw_snr,
+                "gw_optimal_snr": self.optimal_gw_snr_squared.real**0.5,
+                "glitch_matched_filter_snr": self.complex_matched_filter_glitch_snr,
+                "glitch_optimal_snr": self.optimal_glitch_snr_squared.real**0.5,
+            }
 
     def __init__(
         self,
@@ -309,21 +327,19 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
             interferometer.frequency_array.shape, dtype=np.complex128
         )
         for mode_name, waveform_polarization in waveform_polarizations.items():
-            # Crude implementation for now
-            # Could make more efficient by doing stuff within the glitch generator
             if "glitch" in mode_name and interferometer.name in mode_name:
                 glitch_name = mode_name.split(interferometer.name)[-1].strip("_")
                 glitch_signal += interferometer.get_detector_response(
-                    {mode_name: waveform_polarization},
+                    {interferometer.name: waveform_polarization},
                     dict(
                         ra=0,
                         dec=0,
+                        psi=0,
                         geocent_time=self.parameters[
                             f"glitch_{glitch_name}_geocent_time"
                         ],
                     ),
                 )
-
         # In glitch only case, just make the GW signal 0s
         if (
             not self.waveform_generator.frequency_domain_source_model
