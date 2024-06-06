@@ -3,16 +3,23 @@ import copy
 import warnings
 import attr
 import numpy as np
+from traitlets import Bool
 from bilby.core.prior import Interped
 
 warnings.simplefilter("ignore", np.ComplexWarning)
 logger = logging.getLogger(__name__)
 
 from bilby.gw.likelihood.base import GravitationalWaveTransient
-from bilby.gw.detector import get_empty_interferometer, Interferometer
+from bilby.gw.detector import (
+    get_empty_interferometer,
+    Interferometer,
+    InterferometerList,
+)
+from bilby.gw.waveform_generator import WaveformGenerator
 from .glitch_models import _blank_frequency_domain_source_model
+from .waveform_generator import GlitchWaveformGenerator
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 
 class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
@@ -81,21 +88,21 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
 
     def __init__(
         self,
-        interferometers,
-        cbc_waveform_generator,
-        glitch_generators,
-        time_marginalization=False,
-        distance_marginalization=False,
-        phase_marginalization=False,
-        calibration_marginalization=False,
-        priors=None,
-        distance_marginalization_lookup_table=None,
-        calibration_lookup_table=None,
-        number_of_response_curves=1000,
-        starting_index=0,
-        jitter_time=True,
-        reference_frame="sky",
-        time_reference="geocenter",
+        interferometers: InterferometerList,
+        cbc_waveform_generator: WaveformGenerator,
+        glitch_generators: Dict[str, GlitchWaveformGenerator],
+        time_marginalization: Optional[bool] = False,
+        distance_marginalization: Optional[bool] = False,
+        phase_marginalization: Optional[bool] = False,
+        calibration_marginalization: Optional[bool] = False,
+        priors: Optional[dict] = None,
+        distance_marginalization_lookup_table: Optional[str] = None,
+        calibration_lookup_table: Optional[str] = None,
+        number_of_response_curves: Optional[int] = 1000,
+        starting_index: Optional[int] = 0,
+        jitter_time: Optional[bool] = True,
+        reference_frame: Optional[str] = "sky",
+        time_reference: Optional[str] = "geocenter",
     ):
 
         # For now, simplify by only applying distance marginalization

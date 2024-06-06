@@ -831,7 +831,8 @@ def fast_scattering(
     anthropogenic_coefficient=7,
     anthropogenic_frequency=5,
     geocent_time=0,
-    phi=0,
+    phi_1=0,
+    phi_2=0,
     **kwargs,
 ):
     # get kwargs, setup ifo delay for geocent time injection purposes
@@ -854,11 +855,11 @@ def fast_scattering(
         t = np.linspace(0, duration, duration * sampling_frequency)
 
     xoft = microseism_coefficient / microseism_frequency * np.sin(
-        2 * np.pi * microseism_frequency * (t - duration / 2)
+        2 * np.pi * microseism_frequency * (t - duration / 2) + phi_1
     ) + anthropogenic_coefficient / anthropogenic_frequency * np.sin(
-        2 * np.pi * anthropogenic_frequency * (t - duration / 2)
+        2 * np.pi * anthropogenic_frequency * (t - duration / 2) + phi_2
     )
-    hoft = amplitude * np.sin(xoft + phi)
+    hoft = amplitude * np.sin(xoft)
 
     # determine and apply window, centered on duration / 2
     # This window is necessary because our equation describes an infinite set of arches

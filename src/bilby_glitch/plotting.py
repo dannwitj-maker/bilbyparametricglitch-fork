@@ -1,4 +1,5 @@
 import os
+from matplotlib import colorbar
 import numpy as np
 import pandas as pd
 import copy
@@ -115,6 +116,9 @@ def plot_spectrogram(
     whiten=True,
     cmap="viridis",
     scale="log",
+    tres=None,
+    fres=None,
+    colorbar_location="top",
 ) -> Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
     # Make a spectrogram
     qspecgram = timeseries.q_transform(
@@ -125,6 +129,8 @@ def plot_spectrogram(
         frange=frequency_range,
         outseg=outseg,
         whiten=whiten,
+        fres=fres,
+        tres=tres,
     )
 
     if ax is None:
@@ -140,9 +146,14 @@ def plot_spectrogram(
     )
 
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("top", size="5%", pad=0.225)
-    fig.colorbar(colormesh, cax=cax, orientation="horizontal")
-    cax.set_xlabel("Normalized Energy", labelpad=-60)
+    if colorbar_location == "top":
+        cax = divider.append_axes("top", size="5%", pad=0.225)
+        fig.colorbar(colormesh, cax=cax, orientation="horizontal")
+        cax.set_xlabel("Normalized Energy", labelpad=-60)
+    elif colorbar_location == "right":
+        cax = divider.append_axes("right", size="2%", pad=0.225)
+        fig.colorbar(colormesh, cax=cax, orientation="vertical")
+        cax.set_ylabel("Normalized Energy", labelpad=15)
 
     ax.grid(visible=True, which="minor")
     ax.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(10))
@@ -188,7 +199,7 @@ def plot_interferometer_reconstruction(
     spectrogram_cmap="viridis",
     spectrogram_timeseries=None,
     no_legend=False,
-) -> matplotlib.figure.Figure | None:
+) -> Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes, matplotlib.axes.Axes] | None:
     """
     Plot the posterior for the waveform in the frequency domain and
     whitened time domain.
@@ -629,7 +640,7 @@ def plot_interferometer_reconstruction(
                 )
             )
 
-        axs[1].legend(handles=legend_handles, loc="lower right", ncol=2)
+        axs[1].legend(handles=legend_handles, loc="lower left", ncol=2)
 
     if save:
         if filename is None:
