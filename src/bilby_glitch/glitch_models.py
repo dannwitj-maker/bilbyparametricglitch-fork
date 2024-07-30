@@ -2,9 +2,12 @@ import logging
 import numpy as np
 import copy
 from scipy.signal.windows import tukey
-from scipy.signal import savgol_filter
 from scipy.integrate import cumtrapz
 from bilby.core.utils import nfft
+from .glitch_foft_models import (
+    slow_scattering_shifting_modulation_f_of_t,
+    auxiliary_f_of_t,
+)
 
 from typing import TYPE_CHECKING
 
@@ -155,157 +158,6 @@ def populate_unused_parameters(
 def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
     """A placeholder for when no CBC is passed to a joint analysis"""
     return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
-
-
-def taper_on(t: np.array, taper_central_time: float, taper_time_scale: float):
-    """Returns a logistic function, going from off (0) to on (1) smoothly
-
-    Parameters
-    ==========
-    t : np.array
-        The sample time array
-    taper_central_time : float
-        The midpoint of the logistic function
-    taper_time_scale : float
-        The characteristic time scale of the logistic function
-
-    Returns
-    =======
-    np.array
-        The smooth logistic function turning on
-    """
-    return 1 / (1 + np.exp((taper_central_time - t) / taper_time_scale))
-
-
-def taper_off(t: np.array, taper_central_time: float, taper_time_scale: float):
-    """Returns a logistic function, going from on (1) to off (0) smoothly
-
-    Parameters
-    ==========
-    t : np.array
-        The sample time array
-    taper_central_time : float
-        The midpoint of the logistic function
-    taper_time_scale : float
-        The characteristic time scale of the logistic function
-
-    Returns
-    =======
-    np.array
-        The smooth logistic function turning off
-    """
-    return 1 / (1 + np.exp((t - taper_central_time) / taper_time_scale))
-
-
-################################################################################
-################################################################################
-###############################   f(t) Models    ###############################
-################################################################################
-################################################################################
-
-
-def slow_scattering_f_of_t(
-    t: np.array,
-    central_time: float,
-    modulation_frequency: float,
-    harmonic_frequency: float,
-):
-    """Returns arch frequency as a function of time for a parameterized slow scattering model
-
-    Parameters
-    ==========
-    t : np.array
-        The time array over which to evaluate the frequency
-    central_time : float
-        The central time (time of peak frequency) for the arch
-    modulation_frequency : float
-        The driving (microseism) frequency
-    harmonic_frequency : float
-        The peak frequency of the arch
-
-    Returns
-    =======
-    np.array
-        The frequency of the arch at sampled times
-    """
-    return harmonic_frequency * np.cos(
-        2 * np.pi * modulation_frequency * (t - central_time)
-    )
-
-
-def slow_scattering_shifting_modulation_f_of_t(
-    t: np.array,
-    central_time: float,
-    modulation_frequency: float,
-    modulation_frequency_shift: float,
-    harmonic_frequency: float,
-    taper_central_time: float,
-    taper_time_scale: float,
-):
-    """Gets the slow scattering frequency with a smooth shift from initial to final modulation frequency
-
-    Parameters
-    ==========
-    t : np.array
-        The time array over which to evaluate the frequency
-    central_time : float
-        The central time (time of peak frequency) for the arch
-    modulation_frequency : float
-        The initial driving (microseism) frequency
-    modulation_frequency_shift : float
-        The ratio between initial and final modulation frequency
-    harmonic_frequency : float
-        The peak frequency of the arch
-    taper_central_time : float
-        The midpoint of the logistic function
-    taper_time_scale : float
-        The characteristic time scale of the logistic function
-
-    Returns
-    =======
-    np.array
-        The sum of the two frequency arches, with a smooth handoff
-    """
-    initial_function = slow_scattering_f_of_t(
-        t=t,
-        central_time=central_time,
-        modulation_frequency=modulation_frequency,
-        harmonic_frequency=harmonic_frequency,
-    ) * taper_off(
-        t=t, taper_central_time=taper_central_time, taper_time_scale=taper_time_scale
-    )
-    final_function = slow_scattering_f_of_t(
-        t=t,
-        central_time=central_time,
-        modulation_frequency=modulation_frequency * modulation_frequency_shift,
-        harmonic_frequency=harmonic_frequency * modulation_frequency_shift,
-    ) * taper_on(
-        t=t, taper_central_time=taper_central_time, taper_time_scale=taper_time_scale
-    )
-    return initial_function + final_function
-
-
-def auxiliary_f_of_t(
-    auxiliary_timeseries: "gwpy.timeseries.TimeSeries", scale: float
-) -> np.array:
-    """Returns the frequency of the base fringe given an auxiliary timeseries
-    and a scale coefficient.
-    Based on gwdetchar.scattering.core.get_fringe_frequency L88-114
-
-    Parameters
-    ==========
-    auxiliary_timeseries : gwpy.timeseries.TimeSeries
-        A gwpy timeseries for the auxiliary data to be extrapolated from
-    scale : float
-        A scale coefficient to multiply by f(t)
-
-    Returns
-    =======
-    np.array
-        The f(t) array predicted by the auxiliary
-    """
-    velocity = savgol_filter(auxiliary_timeseries.value, 5, 2, deriv=1)
-    return np.abs(scale * 2 / 1.064 * velocity * auxiliary_timeseries.sample_rate.value)
 
 
 ################################################################################
@@ -1142,41 +994,3 @@ def aux_informed_amplitude_splines(
     gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
-
-
-def posterior_waveforms(f: np.ndarray, draw: int, **kwargs):
-    """Draw a realization from a posterior of glitch realizations, computed in some previous Bayesian inference process.
-
-    Parameters
-    ==========
-    f : np.ndarray
-        The frequency array for the data
-    draw : int
-        The index of the draw to use
-    **kwargs:
-        duration : int
-            Duration of the segment in seconds, should be multiple of 2
-        sampling_frequency : int
-            The sampling rate of the data, should be a multiple of 2
-        time_array : np.ndarray
-            Precomputed time array corresponding to the data characteristics, passed for efficiency
-        bayeswave_realizations : np.ndarray
-            Precomputed glitch realizations to draw from
-        glitch_mode_name : str
-            The name to assign the glitch mode - should take the form glitch_{ifo}_{name}
-
-    Returns
-    =======
-    strain_dict : dict
-        Contains 'glitch_mode_name' with the glitch strain, and 'plus' and 'cross' as 0s with the appropriate shape
-    """
-
-    # bayeswave_realizations = kwargs["bayeswave_realizations"]
-    # Get a specific FD realization from the pre-loaded set of all realizations
-    # glitch_realization = bayeswave_realizations[draw, :]
-
-    # Do some time/frequency manipulation garbage to appease bilby, maybe
-
-    # return {kwargs["glitch_mode_name"]: glitch_realization,
-    # "plus": glitch_realization * 0, "cross": glitch_realization * 0}
-    pass
