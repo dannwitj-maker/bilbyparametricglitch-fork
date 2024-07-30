@@ -90,7 +90,7 @@ def get_all_analysis_components(
         analysis.waveform_generator,
     ]
     likelihood_kwargs = dict(
-        priors=copy.deepcopy(result.priors), distance_marginalization=True
+        priors=copy.deepcopy(result.priors), distance_marginalization=False
     )
     if joint:
         likelihood_class = JointGlitchGravitationalWaveTransient
@@ -102,41 +102,3 @@ def get_all_analysis_components(
 
     if frequencies is None:
         return result, data, analysis, base_likelihood, []
-    test_frequency_likelihoods = []
-    for frequency_tuple in frequencies:
-        test_interferometers = copy.deepcopy(base_likelihood.interferometers)
-        frequency_cut_ifo_index = [
-            ii
-            for ii, x in enumerate(base_likelihood.interferometers)
-            if x.name == frequency_cut_ifo
-        ][0]
-
-        minimum_frequency = (
-            frequency_tuple[0]
-            if frequency_tuple[0] is not None
-            else base_likelihood.interferometers[
-                frequency_cut_ifo_index
-            ].minimum_frequency
-        )
-        maximum_frequency = (
-            frequency_tuple[1]
-            if frequency_tuple[1] is not None
-            else base_likelihood.interferometers[
-                frequency_cut_ifo_index
-            ].maximum_frequency
-        )
-
-        test_interferometers[
-            frequency_cut_ifo_index
-        ].minimum_frequency = minimum_frequency
-        test_interferometers[
-            frequency_cut_ifo_index
-        ].maximum_frequency = maximum_frequency
-
-        likelihood_args[0] = test_interferometers
-        likelihood_kwargs["priors"] = copy.deepcopy(result.priors)
-
-        test_frequency_likelihoods.append(
-            likelihood_class(*likelihood_args, **likelihood_kwargs)
-        )
-    return result, data, analysis, base_likelihood, test_frequency_likelihoods
