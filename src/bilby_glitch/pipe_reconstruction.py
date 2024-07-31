@@ -3,9 +3,11 @@ import copy
 
 import bilby
 from bilby_pipe.utils import DataDump
+from bilby_pipe.parser import create_parser as standard_create_parser
 from ptfp.bilby_pipe_interface import get_analysis_from_dag
 
-from .pipe_data_analysis import GlitchDataAnalysisInput
+from .pipe_data_analysis import GlitchDataAnalysisInput, DataAnalysisInput
+from .pipe_parser import glitch_create_parser
 from .result import JointCBCGlitchResult
 from .joint_likelihood import (
     GravitationalWaveTransient,
@@ -27,7 +29,6 @@ def get_all_analysis_components(
     DataDump,
     GlitchDataAnalysisInput,
     bilby.gw.likelihood.GravitationalWaveTransient,
-    List[bilby.gw.likelihood.GravitationalWaveTransient],
 ]:
     """Get all the junk we need from a run
 
@@ -82,7 +83,18 @@ def get_all_analysis_components(
         for x in os.listdir(os.path.join(base_directory, "submit"))
         if "dag" in x and x.split(".")[-1] == "submit"
     ][0]
-    analysis = get_analysis_from_dag(submit_dag, case=case)
+    if joint:
+        data_analysis_input_class = GlitchDataAnalysisInput
+        parser_generator = glitch_create_parser
+    else:
+        data_analysis_input_class = DataAnalysisInput
+        parser_generator = standard_create_parser
+    analysis = get_analysis_from_dag(
+        submit_dag,
+        data_case=case,
+        data_analysis_input_class=data_analysis_input_class,
+        parser_generator=parser_generator,
+    )
     os.chdir(owd)
 
     likelihood_args = [
@@ -101,4 +113,4 @@ def get_all_analysis_components(
     base_likelihood = likelihood_class(*likelihood_args, **likelihood_kwargs)
 
     if frequencies is None:
-        return result, data, analysis, base_likelihood, []
+        return result, data, analysis, base_likelihood
