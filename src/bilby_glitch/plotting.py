@@ -1,60 +1,47 @@
-import ptfp
+import bilby
+import copy
+import numpy as np
+
+from .glitch_foft_models import slow_scattering_f_of_t
+
+from typing import Optional, List
 
 
-# def get_fd_and_td_whitened_waveform_posterior(
-#     posterior: pd.DataFrame,
-#     waveform_generator: WaveformGenerator,
-#     interferometer: Interferometer,
-#     frequency_idxs: np.ndarray,
-#     time_idxs: np.ndarray,
-#     prefix: str | None = None,
-#     n_samples: int | None = None,
-#     seed: int | None = None,
-# ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+def posterior_of_arch_tracks(
+    posterior,
+    interferometer: bilby.gw.detector.interferometer.Interferometer,
+    relative_time_of_track_start: Optional[float] = None,
+    relative_time_of_track_end: Optional[float] = None,
+    number_of_samples=500,
+    seed=1234,
+    arch_index=0,
+    prefix="glitch_Slow_Arches",
+) -> List[np.array]:
+    if number_of_samples is None:
+        samples = copy.deepcopy(posterior)
+    elif number_of_samples <= len(posterior):
+        samples = posterior.sample(number_of_samples, random_state=seed)
+    else:
+        samples = copy.deepcopy(posterior)
 
-#     if prefix is not None:
-#         # If a prefix is offered, this is a glitch waveform and we need to do some manipulations
-#         parameters = {
-#             key.split(prefix)[1].strip("_"): parameter
-#             for key, parameter in posterior.items()
-#             if prefix in key
-#         }
-#         parameters["ra"] = np.zeros_like([x for x in parameters.values()][0])
-#         parameters["dec"] = np.zeros_like([x for x in parameters.values()][0])
-#         parameters["psi"] = np.zeros_like([x for x in parameters.values()][0])
+    foft_posterior = []
+    for _, sample in samples.iterrows():
+        harmonic_frequency = (
+            sample[f"{prefix}_base_harmonic_frequency"]
+            + sample[f"{prefix}_harmonic_frequency_delta"] * arch_index
+        )
+        modulation_frequency = sample[f"{prefix}_modulation_frequency"]
+        geocent_time = sample[f"{prefix}_geocent_time"]
+        central_time = geocent_time + interferometer.time_delay_from_geocenter(
+            0, 0, geocent_time
+        )
+        sample_foft = slow_scattering_f_of_t(
+            interferometer.time_array,
+            central_time,
+            modulation_frequency,
+            harmonic_frequency,
+        )
+        foft_posterior.append(sample_foft)
+    foft_posterior = np.array(foft_posterior)
 
-#         if "_" in waveform_generator.waveform_arguments["glitch_mode_name"]:
-#             waveform_generator.waveform_arguments[
-#                 "glitch_mode_name"
-#             ] = waveform_generator.waveform_arguments["glitch_mode_name"].split("_")[1]
-
-#         posterior = pd.DataFrame(parameters)
-
-#     if n_samples is None:
-#         samples = copy.deepcopy(posterior)
-#     elif n_samples > len(posterior):
-#         logger.debug(
-#             "Requested more waveform samples ({}) than we have "
-#             "posterior samples ({})!".format(n_samples, len(posterior))
-#         )
-#         samples = copy.deepcopy(posterior)
-#     else:
-#         samples = posterior.sample(n_samples, replace=False, random_state=seed)
-
-#     fd_waveforms = list()
-#     td_waveforms = list()
-#     for _, params in samples.iterrows():
-#         fd_waveform, td_waveform = get_fd_and_td_whitened_waveform(
-#             params=params,
-#             waveform_generator=waveform_generator,
-#             interferometer=interferometer,
-#             time_idxs=time_idxs,
-#         )
-#         fd_waveforms.append(fd_waveform[frequency_idxs])
-#         td_waveforms.append(td_waveform)
-#     fd_waveforms = asd_from_freq_series(
-#         fd_waveforms, 1 / interferometer.strain_data.duration
-#     )
-#     td_waveforms = np.array(td_waveforms)
-
-#     return samples, fd_waveforms, td_waveforms
+    return foft_posterior
