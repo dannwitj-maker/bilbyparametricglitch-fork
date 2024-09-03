@@ -13,7 +13,7 @@ from bilby_pipe.utils import (
     import_module,
 )
 
-from .glitch_models import (
+from .bilby_glitch_models import (
     populate_unused_parameters,
     slow_scattering,
     SLOW_SCATTERING_PARAMETERS,

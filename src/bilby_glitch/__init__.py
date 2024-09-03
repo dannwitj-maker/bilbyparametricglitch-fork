@@ -1,6 +1,6 @@
 from . import (
+    bilby_glitch_models,
     glitch_foft_models,
-    glitch_models,
     joint_likelihood,
     pipe_create_injections,
     pipe_data_analysis,

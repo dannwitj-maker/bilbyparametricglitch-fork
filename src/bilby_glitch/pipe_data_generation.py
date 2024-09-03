@@ -25,7 +25,7 @@ from bilby_pipe.data_generation import DataGenerationInput
 
 from .pipe_input import GlitchInput
 from .pipe_parser import glitch_create_parser
-from .glitch_models import _blank_frequency_domain_source_model
+from .bilby_glitch_models import _blank_frequency_domain_source_model
 
 
 class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
