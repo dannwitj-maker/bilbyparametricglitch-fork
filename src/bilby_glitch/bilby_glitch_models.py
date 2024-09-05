@@ -9,7 +9,7 @@ from .glitch_foft_models import (
     auxiliary_f_of_t,
 )
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -994,3 +994,52 @@ def aux_informed_amplitude_splines(
     gtilde *= np.exp(-2 * np.pi * 1j * frequencies * (duration / 2))
 
     return {kwargs["glitch_mode_name"]: gtilde, "plus": gtilde * 0, "cross": gtilde * 0}
+
+
+def bilbify_parametric_glitch(
+    duration: float,
+    sampling_frequency: float,
+    start_time: float,
+    glitch_name: str,
+    time_domain_parametric_glitch_function: Optional[Callable] = None,
+    frequency_domain_parametric_glitch_function: Optional[Callable] = None,
+):
+    """Produces a wrapped version of the parametric
+    function for a glitch which produces the outputs
+    bilby expects to see, namely a frequency series
+    with times appropriately managed.
+    It is expected that the function defines geocent
+    time such that it is
+
+    Parameters
+    ==========
+        duration : float
+            The duration of the data segment
+        sampling_frequency : float
+            The sampling frequency of the data segment
+        start_time : float
+            The start time of the data segment
+        glitch_name : str
+            An identifying name for the glitch.
+            Should be {ifo} when used with likelihood
+            computations.
+        time_domain_parametric_glitch_function : Optional[Callable]
+            The time domain parametric function to wrap.
+            Exactly one of ime_domain_parametric_glitch_function or
+            frequency_domain_parametric_glitch_function should be passed.
+        frequency_domain_parametric_glitch_function : Optional[Callable]
+            The frequency domain parametric function to wrap.
+            Exactly one of ime_domain_parametric_glitch_function or
+            frequency_domain_parametric_glitch_function should be passed.
+    """
+    if (
+        time_domain_parametric_glitch_function is None
+        and frequency_domain_parametric_glitch_function is None
+    ):
+        raise ValueError("Must specify a function to wrap")
+
+    # bilby assumes that function maps "geocent_time" to the end of the array, wrapping
+    # for times after geocent time. So, e.g. the merger will occur at the end of the segment
+    # and the ringdown will wrap back to the beginning.
+    # It then applies its own rotation accordingly so that the merger actually happens at the correct time
+    # Now, parametric functions are assumed to take their own
