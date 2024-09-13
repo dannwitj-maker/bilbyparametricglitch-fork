@@ -2,7 +2,7 @@ import bilby
 import copy
 import numpy as np
 
-from .glitch_foft_models import slow_scattering_f_of_t
+from .glitch_foft_models import slow_scattering_single_arch_f_of_t
 
 from typing import Optional, List
 

@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import copy
 from scipy.signal.windows import tukey
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from bilby.core.utils import nfft
 from .glitch_foft_models import (
     slow_scattering_shifting_modulation_f_of_t,
@@ -629,7 +629,7 @@ def slow_scattering_shifting_frequency(
         taper_time_scale=taper_time_scale,
     )
 
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     # get hoft of 0th arch
@@ -837,7 +837,7 @@ def aux_informed(
     goft = np.zeros(t.shape)
     f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
     # Add up each arch
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):
@@ -968,7 +968,7 @@ def aux_informed_amplitude_splines(
     # Add up each arch
     f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
     # Add up each arch
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):

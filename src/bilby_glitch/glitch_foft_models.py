@@ -1,6 +1,7 @@
 import numpy as np
 import jax.typing as jnpt
 import jax.numpy as jnp
+import jax
 import gwpy
 from scipy.signal import savgol_filter
 
@@ -41,7 +42,7 @@ def slow_scattering_single_arch_f_of_t(
         2 * np.pi * modulation_frequency * (t - central_time)
     )
 
-
+@jax.jit
 def jax_slow_scattering_f_of_t_all_arches(
     t: jnpt.ArrayLike,
     scattering_parameters: jnpt.ArrayLike,
@@ -59,17 +60,15 @@ def jax_slow_scattering_f_of_t_all_arches(
             The times for which to evaluate the
             frequencies, of shape (N,)
         scattering_parameters : jnpt.ArrayLike
-            [0] is the modulation_frequency
+            [0] is the central time, which sets
+            the time at which the arches peak
+            [1] is the modulation_frequency
             which sets the width of the arches
-            [1] is the base_harmonic_frequency
+            [2] is the base_harmonic_frequency
             which sets the peak frequency of the
             bottom arch
-            [2] is the harmonic_frequency_delta,
+            [3] is the harmonic_frequency_delta,
             which sets the space between arches
-            [3] is the central time, which sets
-            the time at which the arches peak
-            [4:14] are the respective phases for
-            each arch
 
     Returns
     =======
@@ -79,12 +78,11 @@ def jax_slow_scattering_f_of_t_all_arches(
             for 10 stacked arches, where N is the
             length of the timeseries.
     """
-    f_harm_k = jnp.arange(10) * scattering_parameters[2] + scattering_parameters[1]
-    modulation_of_t = jnp.sin(
-        2 * jnp.pi * scattering_parameters[0] * (t - scattering_parameters[3])
+    f_harm_k = jnp.arange(10) * scattering_parameters[3] + scattering_parameters[2]
+    modulation_of_t = jnp.cos(
+        2 * jnp.pi * scattering_parameters[1] * (t - scattering_parameters[0])
     )
     f_of_t_all_arches = jnp.outer(f_harm_k, modulation_of_t)
-    f_of_t_all_arches += scattering_parameters[4:14][:, jnp.newaxis]
     return f_of_t_all_arches
 
 
@@ -94,16 +92,6 @@ def slow_scattering_f_of_t_all_arches(
     base_harmonic_frequency: float = 30,
     harmonic_frequency_delta: float = 25,
     central_time: float = 0,
-    phi_0: float = 0,
-    phi_1: float = 0,
-    phi_2: float = 0,
-    phi_3: float = 0,
-    phi_4: float = 0,
-    phi_5: float = 0,
-    phi_6: float = 0,
-    phi_7: float = 0,
-    phi_8: float = 0,
-    phi_9: float = 0,
 ) -> jnpt.ArrayLike:
     """A wrapper around jax_slow_scattering_f_of_t_all_arches
     For use with APIs which assume parameters are passed as keyword arguments.
@@ -120,8 +108,6 @@ def slow_scattering_f_of_t_all_arches(
             The expected difference in harmonic frequency between the ith and i+1th arch
         central_time : float
             The geocenter time to center the 0th arch at, and optionally all other arches as well
-        phi_{i} : float
-            {i} runs over 0-9, the phase of the ith arch
     Returns
     =======
 
@@ -132,16 +118,6 @@ def slow_scattering_f_of_t_all_arches(
             base_harmonic_frequency,
             harmonic_frequency_delta,
             central_time,
-            phi_0,
-            phi_1,
-            phi_2,
-            phi_3,
-            phi_4,
-            phi_5,
-            phi_6,
-            phi_7,
-            phi_8,
-            phi_9,
         ]
     )
     return jax_slow_scattering_f_of_t_all_arches(t, scattering_arguments)

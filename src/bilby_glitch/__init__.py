@@ -13,6 +13,7 @@ from . import (
     result,
     series_transforms,
     waveform_generator,
+    parametric_glitch_models
 )
 
 from .pipe_create_injections import main as glitch_bilby_pipe_create_injection_file
