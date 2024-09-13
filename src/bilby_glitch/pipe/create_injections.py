@@ -17,7 +17,7 @@ from bilby_pipe.create_injections import (
     InjectionCreator,
 )
 
-from .pipe_input import GlitchInput
+from .input import GlitchInput
 
 
 class GlitchInjectionCreator(InjectionCreator, GlitchInput):
