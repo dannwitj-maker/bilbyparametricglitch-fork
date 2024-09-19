@@ -28,7 +28,7 @@ docs:
     - mkdocs build
   artifacts:
     paths:
-      - site/
+      - docs/site/
 
 pages:
   stage: deploy
