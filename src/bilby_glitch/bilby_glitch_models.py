@@ -9,7 +9,7 @@ from .glitch_foft_models import (
     auxiliary_f_of_t,
 )
 
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -1003,13 +1003,12 @@ def bilbify_parametric_glitch(
     glitch_name: str,
     time_domain_parametric_glitch_function: Optional[Callable] = None,
     frequency_domain_parametric_glitch_function: Optional[Callable] = None,
+    parametric_glitch_parameters : List[str] = None,
 ):
     """Produces a wrapped version of the parametric
     function for a glitch which produces the outputs
     bilby expects to see, namely a frequency series
     with times appropriately managed.
-    It is expected that the function defines geocent
-    time such that it is
 
     Parameters
     ==========
@@ -1038,8 +1037,21 @@ def bilbify_parametric_glitch(
     ):
         raise ValueError("Must specify a function to wrap")
 
+    if time_domain_parametric_glitch_function is not None:
+        def frequency_domain_parametric_glitch_function(
+            f, *args, **kwargs
+        ):
+            t = np.linspace(start_time, duration+start_time, duration * sampling_frequency)
+            time_domain_parametric_glitch = time_domain_parametric_glitch_function(t, *args, **kwargs)
+            return nfft(time_domain_parametric_glitch)
+
     # bilby assumes that function maps "geocent_time" to the end of the array, wrapping
     # for times after geocent time. So, e.g. the merger will occur at the end of the segment
     # and the ringdown will wrap back to the beginning.
     # It then applies its own rotation accordingly so that the merger actually happens at the correct time
     # Now, parametric functions are assumed to take their own
+
+    def bilby_glitch_function(
+        
+    ):
+        pass
