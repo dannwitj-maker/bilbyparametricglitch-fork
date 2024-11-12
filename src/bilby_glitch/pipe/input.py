@@ -15,11 +15,18 @@ from bilby_pipe.utils import (
 
 from ..bilby_glitch_models import (
     populate_unused_parameters,
+    SINGLE_WAVELET_SAMPLING_PARAMETERS,
+    SLOW_SCATTERING_SAMPLING_PARAMETERS,
+)
+
+from ..legacy_bilby_glitch_models import (
     slow_scattering,
-    SLOW_SCATTERING_PARAMETERS,
     slow_scattering_shifting_frequency,
+    SLOW_SCATTERING_PARAMETERS,
     SLOW_SCATTERING_SHIFTING_PARAMETERS,
 )
+
+from ..parametric_glitch_models import jax_wavelet_g_of_f, jax_slow_scattering_g_of_f
 
 
 class GlitchInput(Input):
@@ -338,6 +345,10 @@ class GlitchInput(Input):
                     frequency_domain_source_model=self.joint_waveform_generator_source_models[
                         index_name
                     ],
+                    parametric_frequency_domain_source_model=self.joint_waveform_generator_parametric_models[
+                        index_name
+                    ],
+                    parametric_glitch_sampling_parameters=self.joint_waveform_generator_parametric_sampling_parameters,
                     parameter_conversion=bilby.gw.conversion.identity_map_conversion,
                     waveform_arguments=self.joint_waveform_generator_model_kwargs[
                         index_name
@@ -389,9 +400,63 @@ class GlitchInput(Input):
     def joint_waveform_generator_source_models(self):
         return self._joint_waveform_generator_source_models
 
+    @property
+    def joint_waveform_generator_parametric_models(self):
+        return self._joint_waveform_generator_parametric_models
+
+    @property
+    def joint_waveform_generator_parametric_sampling_parameters(self):
+        return self._joint_waveform_generator_parametric_sampling_parameters
+
+    @joint_waveform_generator_parametric_models.setter
+    def joint_waveform_generator_parametric_models(self, parametric_models: str | dict):
+        self._joint_waveform_generator_parametric_models = dict()
+        if isinstance(parametric_models, str):
+            parametric_models = convert_string_to_dict(parametric_models)
+        for index_name, model_name in parametric_models.items():
+            if model_name == "slow_scattering":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = jax_slow_scattering_g_of_f
+                self._joint_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = SLOW_SCATTERING_SAMPLING_PARAMETERS
+            elif model_name == "single_wavelet":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = jax_wavelet_g_of_f
+                self._joint_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = SINGLE_WAVELET_SAMPLING_PARAMETERS
+            elif "." in model_name:
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = get_function_from_string_path(model_name)
+        self._cleanup_joint_models()
+
+    @joint_waveform_generator_parametric_sampling_parameters.setter
+    def joint_waveform_generator_parametric_sampling_parameters(
+        self, sampling_parameters: str | dict
+    ):
+        self._joint_waveform_generator_parametric_sampling_parameters = dict()
+        if isinstance(sampling_parameters, str):
+            sampling_parameters = convert_string_to_dict(sampling_parameters)
+        for index_name, sampling_parameters in sampling_parameters.items():
+            if "." in sampling_parameters:
+                self._joint_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = get_function_from_string_path(sampling_parameters)
+            elif isinstance(sampling_parameters, list):
+                self._joint_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = sampling_parameters
+        self._cleanup_joint_models()
+
     @joint_waveform_generator_source_models.setter
     def joint_waveform_generator_source_models(self, source_models: str | dict):
         self._joint_waveform_generator_source_models = dict()
+        self._joint_waveform_generator_parametric_models = dict()
+        self._joint_waveform_generator_parametric_sampling_parameters = dict()
         if isinstance(source_models, str):
             source_models = convert_string_to_dict(source_models)
         for index_name, model_name in source_models.items():
@@ -400,7 +465,49 @@ class GlitchInput(Input):
                     index_name
                 ] = get_function_from_string_path(model_name)
             else:
-                raise BilbyPipeError(f"No source model {model_name} found.")
+                self._joint_waveform_generator_source_models[index_name] = None
+        self._cleanup_joint_models()
+
+    @staticmethod
+    def _set_none_where_keys_are_missing(keys, dict):
+        missing_keys = set(keys) - set(dict.keys())
+        for key in missing_keys:
+            dict[key] = None
+        return dict
+
+    def _cleanup_joint_models(self):
+        self._joint_waveform_generator_parametric_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_source_models.keys(),
+                self._joint_waveform_generator_parametric_models,
+            )
+        )
+        self._joint_waveform_generator_parametric_models = self._set_none_where_keys_are_missing(
+            self._joint_injection_waveform_generator_parametric_sampling_parameters.keys(),
+            self._joint_waveform_generator_parametric_models,
+        )
+        self._joint_waveform_generator_parametric_sampling_parameters = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_source_models.keys(),
+                self._joint_waveform_generator_parametric_sampling_parameters,
+            )
+        )
+        self._joint_waveform_generator_parametric_sampling_parameters = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_parametric_models.keys(),
+                self._joint_waveform_generator_parametric_sampling_parameters,
+            )
+        )
+        self._joint_waveform_generator_source_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_parameteric_models.keys(),
+                self._joint_waveform_generator_source_models,
+            )
+        )
+        self._joint_waveform_generator_source_models = self._set_none_where_keys_are_missing(
+            self._joint_injection_waveform_generator_parameteric_sampling_parameters.keys(),
+            self._joint_waveform_generator_source_models,
+        )
 
     @property
     def joint_waveform_generator_kwargs(self):
@@ -505,6 +612,60 @@ class GlitchInput(Input):
     def joint_injection_waveform_generator_source_models(self):
         return self._joint_injection_waveform_generator_source_models
 
+    @property
+    def joint_injection_waveform_generator_parametric_models(self):
+        return self._joint_injection_waveform_generator_parametric_models
+
+    @property
+    def joint_injection_waveform_generator_parametric_sampling_parameters(self):
+        return self._joint_injection_waveform_generator_parametric_sampling_parameters
+
+    @joint_injection_waveform_generator_parametric_models.setter
+    def joint_injection_waveform_generator_parametric_models(
+        self, parametric_models: str | dict
+    ):
+        self._joint_injection_waveform_generator_parametric_models = dict()
+        if isinstance(parametric_models, str):
+            parametric_models = convert_string_to_dict(parametric_models)
+        for index_name, model_name in parametric_models.items():
+            if model_name == "slow_scattering":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = jax_slow_scattering_g_of_f
+                self._joint_injection_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = SLOW_SCATTERING_SAMPLING_PARAMETERS
+            elif model_name == "single_wavelet":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = jax_wavelet_g_of_f
+                self._joint_injection_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = SINGLE_WAVELET_SAMPLING_PARAMETERS
+            elif "." in model_name:
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = get_function_from_string_path(model_name)
+        self._cleanup_joint_injection_models()
+
+    @joint_injection_waveform_generator_parametric_sampling_parameters.setter
+    def joint_injection_waveform_generator_parametric_sampling_parameters(
+        self, sampling_parameters: str | dict
+    ):
+        self._joint_injection_waveform_generator_parametric_sampling_parameters = dict()
+        if isinstance(sampling_parameters, str):
+            sampling_parameters = convert_string_to_dict(sampling_parameters)
+        for index_name, sampling_parameters in sampling_parameters.items():
+            if "." in sampling_parameters:
+                self._joint_injection_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = get_function_from_string_path(sampling_parameters)
+            elif isinstance(sampling_parameters, list):
+                self._joint_injection_waveform_generator_parametric_sampling_parameters[
+                    index_name
+                ] = sampling_parameters
+        self._cleanup_joint_injection_models()
+
     @joint_injection_waveform_generator_source_models.setter
     def joint_injection_waveform_generator_source_models(
         self, source_models: str | dict
@@ -518,7 +679,44 @@ class GlitchInput(Input):
                     index_name
                 ] = get_function_from_string_path(model_name)
             else:
-                raise BilbyPipeError(f"No source model {model_name} found.")
+                self._joint_injection_waveform_generator_source_models[
+                    index_name
+                ] = None
+        self._cleanup_joint_injection_models()
+
+    def _cleanup_joint_injection_models(self):
+        self._joint_injection_waveform_generator_parametric_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_source_models.keys(),
+                self._joint_injection_waveform_generator_parametric_models,
+            )
+        )
+        self._joint_injection_waveform_generator_parametric_models = self._set_none_where_keys_are_missing(
+            self._joint_injection_waveform_generator_parametric_sampling_parameters.keys(),
+            self._joint_injection_waveform_generator_parametric_models,
+        )
+        self._joint_injection_waveform_generator_parametric_sampling_parameters = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_source_models.keys(),
+                self._joint_injection_waveform_generator_parametric_sampling_parameters,
+            )
+        )
+        self._joint_injection_waveform_generator_parametric_sampling_parameters = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_parametric_models.keys(),
+                self._joint_injection_waveform_generator_parametric_sampling_parameters,
+            )
+        )
+        self._joint_injection_waveform_generator_source_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_parameteric_models.keys(),
+                self._joint_injection_waveform_generator_source_models,
+            )
+        )
+        self._joint_injection_waveform_generator_source_models = self._set_none_where_keys_are_missing(
+            self._joint_injection_waveform_generator_parameteric_sampling_parameters.keys(),
+            self._joint_injection_waveform_generator_source_models,
+        )
 
     @property
     def joint_injection_waveform_generator_kwargs(self):

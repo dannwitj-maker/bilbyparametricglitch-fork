@@ -6,7 +6,7 @@ import numpy as np
 from traitlets import Bool
 from bilby.core.prior import Interped
 
-warnings.simplefilter("ignore", np.ComplexWarning)
+# warnings.simplefilter("ignore", np.ComplexWarning)
 logger = logging.getLogger(__name__)
 
 from bilby.gw.likelihood.base import GravitationalWaveTransient
