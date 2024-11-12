@@ -23,7 +23,6 @@ class GlitchWaveformGenerator(WaveformGenerator):
         parametric_time_domain_source_model=None,
         parametric_frequency_domain_source_model=None,
         parametric_source_model_converter=bilbify_parametric_glitch,
-        parametric_glitch_sampling_parameters=None,
         parameters=None,
         parameter_conversion=None,
         waveform_arguments={},
@@ -62,9 +61,6 @@ class GlitchWaveformGenerator(WaveformGenerator):
             # Default to bilby default of 2
             waveform_arguments["post_trigger_duration"] = 2
 
-        if parametric_glitch_sampling_parameters is None and parameters is not None:
-            parametric_glitch_sampling_parameters = list(parameters.keys())
-
         if (
             frequency_domain_source_model is None
             and parametric_frequency_domain_source_model is None
@@ -81,12 +77,11 @@ class GlitchWaveformGenerator(WaveformGenerator):
                 duration=duration,
                 sampling_frequency=sampling_frequency,
                 start_time=start_time,
-                glitch_name=glitch_index_name,
+                glitch_name=waveform_arguments["glitch_mode_name"],
                 glitch_interferometer=glitch_interferometer,
                 time_domain_parametric_glitch_function=parametric_time_domain_source_model,
                 frequency_domain_parametric_glitch_function=parametric_frequency_domain_source_model,
-                parametric_glitch_helper_parameters=waveform_arguments,
-                parametric_glitch_sampling_parameters=parametric_glitch_sampling_parameters,
+                fixed_glitch_waveform_arguments=waveform_arguments,
             )
 
         super(GlitchWaveformGenerator, self).__init__(

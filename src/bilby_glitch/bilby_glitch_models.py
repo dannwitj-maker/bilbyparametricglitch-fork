@@ -70,6 +70,35 @@ SINGLE_WAVELET_SAMPLING_PARAMETERS = [
 SINGLE_WAVELET_HELPER_PARAMETERS = ["start_time"]
 
 
+class WrappedGlitchFunction:
+    def __init__(self, function, sampling_parameters, helper_parameters):
+        self.function = function
+        self.sampling_parameters = sampling_parameters
+        self.helper_parameters = helper_parameters
+
+    def __call__(self, *args, **kwargs):
+        return self.function(*args, **kwargs)
+
+    def __repr__(self):
+        return f"""WrappedGlitchFunction(
+            function={self.function},
+            sampling_parameters={self.sampling_parameters},
+            helper_parameters={self.helper_parameters}
+        )"""
+
+
+single_wavelet_frequency_domain = WrappedGlitchFunction(
+    jax_wavelet_g_of_f,
+    sampling_parameters=SINGLE_WAVELET_SAMPLING_PARAMETERS,
+    helper_parameters=SINGLE_WAVELET_HELPER_PARAMETERS,
+)
+slow_scattering_frequency_domain = WrappedGlitchFunction(
+    jax_slow_scattering_g_of_f,
+    sampling_parameters=SLOW_SCATTERING_SAMPLING_PARAMETERS,
+    helper_parameters=SLOW_SCATTERING_HELPER_PARAMETERS,
+)
+
+
 def populate_unused_parameters(
     original_dict: dict,
     full_parameter_list: list = SLOW_SCATTERING_SAMPLING_PARAMETERS,
@@ -115,10 +144,8 @@ def bilbify_parametric_glitch(
     start_time: float,
     glitch_name: str,
     glitch_interferometer: str,
-    time_domain_parametric_glitch_function: Optional[Callable] = None,
-    frequency_domain_parametric_glitch_function: Optional[Callable] = None,
-    parametric_glitch_helper_parameters: List[str] = None,
-    parametric_glitch_sampling_parameters: List[str] = None,
+    time_domain_parametric_glitch_function: Optional[WrappedGlitchFunction] = None,
+    frequency_domain_parametric_glitch_function: Optional[WrappedGlitchFunction] = None,
     fixed_glitch_waveform_arguments: Dict[str, any] = None,
 ):
     """Produces a wrapped version of the parametric
@@ -138,12 +165,12 @@ def bilbify_parametric_glitch(
             An identifying name for the glitch.
             Should be {ifo} when used with likelihood
             computations.
-        time_domain_parametric_glitch_function : Optional[Callable]
-            The time domain parametric function to wrap.
+        time_domain_parametric_glitch_function : Optional[WrappedGlitchFunction]
+            The TD callable glitch function to use, appropriately wrapped.
             Exactly one of time_domain_parametric_glitch_function or
             frequency_domain_parametric_glitch_function should be passed.
-        frequency_domain_parametric_glitch_function : Optional[Callable]
-            The frequency domain parametric function to wrap.
+        frequency_domain_parametric_glitch_function : Optional[WrappedGlitchFunction]
+            The FD callable glitch function to use, appropriately wrapped.
             Exactly one of time_domain_parametric_glitch_function or
             frequency_domain_parametric_glitch_function should be passed.
     """
@@ -152,24 +179,6 @@ def bilbify_parametric_glitch(
         and frequency_domain_parametric_glitch_function is None
     ):
         raise ValueError("Must specify a function to wrap")
-
-    if frequency_domain_parametric_glitch_function == jax_wavelet_g_of_f:
-        parametric_glitch_sampling_parameters = SINGLE_WAVELET_SAMPLING_PARAMETERS
-        parametric_glitch_helper_parameters = SINGLE_WAVELET_HELPER_PARAMETERS
-    elif frequency_domain_parametric_glitch_function == jax_slow_scattering_g_of_f:
-        parametric_glitch_sampling_parameters = SLOW_SCATTERING_SAMPLING_PARAMETERS
-        parametric_glitch_helper_parameters = SLOW_SCATTERING_HELPER_PARAMETERS
-    else:
-        parametric_glitch_sampling_parameters = (
-            []
-            if parametric_glitch_sampling_parameters is None
-            else parametric_glitch_sampling_parameters
-        )
-        parametric_glitch_helper_parameters = (
-            []
-            if parametric_glitch_helper_parameters is None
-            else parametric_glitch_helper_parameters
-        )
 
     fixed_glitch_waveform_arguments = (
         {}
@@ -192,13 +201,17 @@ def bilbify_parametric_glitch(
             start_time, duration + start_time, duration * sampling_frequency
         )
 
-        def frequency_domain_parametric_glitch_function(
-            f, sampling_parameters, **kwargs
-        ):
+        def frequency_domain_parametric_glitch_function(f, **kwargs):
             time_domain_parametric_glitch = time_domain_parametric_glitch_function(
-                t, sampling_parameters, **kwargs
+                t, time_domain_parametric_glitch_function.sampling_parameters, **kwargs
             )
             return jnp.fft.rfft(time_domain_parametric_glitch) / sampling_frequency
+
+        frequency_domain_parametric_glitch_function = WrappedGlitchFunction(
+            frequency_domain_parametric_glitch_function,
+            time_domain_parametric_glitch_function.sampling_parameters,
+            time_domain_parametric_glitch_function.helper_parameters,
+        )
 
     # Get the end time of the segment, for handling time conventions
     segment_end_time = duration + start_time
@@ -217,7 +230,7 @@ def bilbify_parametric_glitch(
             annotation=np.typing.ArrayLike,
         )
     )
-    for parameter in parametric_glitch_sampling_parameters:
+    for parameter in frequency_domain_parametric_glitch_function.sampling_parameters:
         signature_parameters.append(
             inspect.Parameter(
                 name=parameter,
@@ -235,7 +248,7 @@ def bilbify_parametric_glitch(
     fixed_waveform_arguments_to_use = {
         k: v
         for k, v in fixed_glitch_waveform_arguments.items()
-        if k in parametric_glitch_helper_parameters
+        if k in frequency_domain_parametric_glitch_function.helper_parameters
     }
 
     @makefun.with_signature(
@@ -243,12 +256,15 @@ def bilbify_parametric_glitch(
     )
     def bilby_glitch_function(f, **kwargs):
         sampling_parameters = jnp.array(
-            [kwargs[x] for x in parametric_glitch_sampling_parameters]
+            [
+                kwargs[x]
+                for x in frequency_domain_parametric_glitch_function.sampling_parameters
+            ]
         )
         g_of_f = frequency_domain_parametric_glitch_function(
             f,
             sampling_parameters=sampling_parameters,
-            **fixed_waveform_arguments_to_use
+            **fixed_waveform_arguments_to_use,
         )
 
         # bilby assumes that function maps "geocent_time" to the end of the array, wrapping
