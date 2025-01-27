@@ -5,10 +5,10 @@ from scipy.signal.windows import tukey
 from scipy.integrate import cumulative_trapezoid
 from bilby.core.utils import nfft
 from bilby.gw.detector import get_empty_interferometer
-from .models.glitch_foft_models import (
+from .parametric_glitch_models import (
     slow_scattering_shifting_modulation_f_of_t,
-    auxiliary_f_of_t,
 )
+from .nonparametric_glitch_models import auxiliary_f_of_t
 
 logger = logging.getLogger(__name__)
 

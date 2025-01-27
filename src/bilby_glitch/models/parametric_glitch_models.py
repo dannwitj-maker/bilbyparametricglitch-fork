@@ -6,6 +6,9 @@ from functools import partial
 import numpy as np
 
 from .series_transforms import taper_off, taper_on
+from .jax_utils import tukey, index_of_nearest_value, cumulative_trapezoid
+
+from typing import Tuple
 
 ################################################################################
 ################################################################################
@@ -15,7 +18,7 @@ from .series_transforms import taper_off, taper_on
 
 
 @partial(jax.jit, static_argnames=("groups_left_of_center", "groups_right_of_center"))
-def jax_slow_scattering_phi_of_t(
+def slow_scattering_phi_of_t_jax(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
     groups_left_of_center: int = 0,
@@ -160,7 +163,7 @@ def slow_scattering_g_of_t_jax(
     """
 
     arches_mask = jnp.arange(number_of_arches)
-    arches_phi_of_t = jax_slow_scattering_phi_of_t(
+    arches_phi_of_t = slow_scattering_phi_of_t_jax(
         t,
         sampling_parameters[0:14],
         groups_left_of_center=groups_left_of_center,
@@ -186,7 +189,7 @@ def slow_scattering_g_of_t_jax(
         "groups_right_of_center",
     ),
 )
-def jax_slow_scattering_g_of_f(
+def slow_scattering_g_of_f_jax(
     f: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
     sampling_frequency: int,
@@ -228,11 +231,15 @@ def jax_slow_scattering_g_of_f(
         groups_left_of_center=groups_left_of_center,
         groups_right_of_center=groups_right_of_center,
     )
-    return jnp.fft.rfft(time_domain_parametric_glitch) / sampling_frequency
+    amplitude_tukey = tukey(t.shape[0], alpha=0.2)
+    return (
+        jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
+        / sampling_frequency
+    )
 
 
 @partial(jax.jit, static_argnames=("start_time"))
-def jax_wavelet_g_of_f(
+def wavelet_g_of_f_jax(
     f,
     sampling_parameters,
     start_time: float = 0,
@@ -261,7 +268,166 @@ def jax_wavelet_g_of_f(
     return const * decay_term * (plus_term + minus_term * Q_decay_term)
 
 
-# @partial(jax.jit, static_argnames=(""))
+@partial(jax.jit, static_argnames=("scattering_window"))
+def fast_scattering_phi_of_t_jax(
+    t: jnpt.ArrayLike,
+    scattering_parameters: jnpt.ArrayLike,
+    scattering_window: Tuple[float, float],
+) -> jnpt.ArrayLike:
+    """Generates $\\phi(t)$ for a fast scattering model,
+    with windowing applied on the frequency evolution.
+    In analytic terms this would be
+    $\\phi(t) = a_1 sin(2 \\pi f_1 (t - t_1))
+    + a_2 sin(2 \\pi f_2 (t - t_2)) + \\phi_0$
+    However, for windowing purposes this is actually generated as
+    $\\phi(t) = (2 \\pi) (W * \\int f(t) dt) + \\phi_0$
+    For the window function W
+
+    Parameters
+    ==========
+        t : jnpt.ArrayLike
+            The times for which to evaluate the
+            frequencies, of shape (N,)
+        scattering_parameters : jnpt.ArrayLike
+            The parameters to generate the frequency evolution
+            of the fast scattering glitch.
+            [0] is t_1, the central time associated with the first
+            frequency, which to establish convention will be
+            the lower (microseism) frequency. This will also    ```
+            be treated as the geocent_time for purposes of
+            bilby compatibility
+            [1] is t_2, the central time associated with the second
+            frequency, which to establish convention will be
+            the higher (anthropogenic) frequency
+            [2] is f_1, the first frequency, which we'll assume
+            for sake of convention is the lower
+            (microseism) frequency
+            [3] is f_2, the second frequency, which we'll assume
+            for the sake of convention is the higher
+            (anthropogenic) frequency
+            [4] is c_1, the first frequency coefficient, associated
+            to the lower frequency f_1
+            [5] is c_2, the second frequency coefficient, associated
+            to the higher frequency f_2
+            [6] is phi, the phase offset of the integrated frequency evolution.
+        scattering_window : Tuple[float, float]
+            The start and end times of the windowing function.
+            All times outside this window but in the data segment will be set
+            to 0.
+
+    Returns
+    =======
+        jnpt.ArrayLike
+            The phi(t) associated with the fast scattering
+    """
+    f_of_t = fast_scattering_f_of_t_jax(t, scattering_parameters[:-1])
+
+    zero_crossings = jnp.argwhere(jnp.isclose(f_of_t, 0, atol=0.5))
+    index_of_lower_window_time = index_of_nearest_value(scattering_window[0], t)
+    index_of_upper_window_time = index_of_nearest_value(scattering_window[1], t)
+    nearest_lower_zero_crossing = zero_crossings[
+        index_of_nearest_value(index_of_lower_window_time, zero_crossings)
+    ]
+    nearest_upper_zero_crossing = zero_crossings[
+        index_of_nearest_value(index_of_upper_window_time, zero_crossings)
+    ]
+
+    indices = jnp.indices(t.shape)
+    windowed_fast_scattering_f_of_t = jnp.where(
+        (indices <= nearest_lower_zero_crossing)
+        | (indices >= nearest_upper_zero_crossing),
+        jnp.zeros_like(f_of_t),
+        f_of_t,
+    )
+
+    phi_of_t = (
+        cumulative_trapezoid(windowed_fast_scattering_f_of_t, t, initial=0) * 2 * jnp.pi
+        + scattering_parameters[6]
+    )
+    return phi_of_t
+
+
+@partial(jax.jit, static_argnames=("scattering_window"))
+def fast_scattering_g_of_t_jax(
+    t: jnpt.ArrayLike,
+    scattering_parameters: jnpt.ArrayLike,
+    scattering_window: Tuple[float, float],
+) -> jnpt.ArrayLike:
+    """
+
+    Parameters
+    ==========
+        t : jnpt.ArrayLike
+            The times for which to evaluate the
+            frequencies, of shape (N,)
+        scattering_parameters : jnpt.ArrayLike
+            The parameters to generate the frequency evolution
+            of the fast scattering glitch.
+            [0] is t_1, the central time associated with the first
+            frequency, which to establish convention will be
+            the lower (microseism) frequency. This will also    ```
+            be treated as the geocent_time for purposes of
+            bilby compatibility
+            [1] is t_2, the central time associated with the second
+            frequency, which to establish convention will be
+            the higher (anthropogenic) frequency
+            [2] is f_1, the first frequency, which we'll assume
+            for sake of convention is the lower
+            (microseism) frequency
+            [3] is f_2, the second frequency, which we'll assume
+            for the sake of convention is the higher
+            (anthropogenic) frequency
+            [4] is c_1, the first frequency coefficient, associated
+            to the lower frequency f_1
+            [5] is c_2, the second frequency coefficient, associated
+            to the higher frequency f_2
+            [6] is phi, the phase offset of the integrated frequency evolution.
+            [7] is A, the amplitude of the scattering signal
+        scattering_window : Tuple[float, float]
+            The start and end times of the windowing function.
+            All times outside this window but in the data segment will be set
+            to 0.
+
+    Returns
+    =======
+    jnpt.ArrayLike
+        The glitch signal for this fast scattering glitch
+    """
+    phi_of_t = fast_scattering_phi_of_t_jax(
+        t, scattering_parameters[:-1], scattering_window=scattering_window
+    )
+    g_of_t = scattering_parameters[7] * jnp.sin(phi_of_t)
+
+    return g_of_t
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "sampling_frequency",
+        "duration",
+        "start_time",
+        "scattering_window",
+    ),
+)
+def fast_scattering_g_of_f_jax(
+    f: jnpt.ArrayLike,
+    sampling_paraemters: jnpt.ArrayLike,
+    scattering_window: Tuple[float, float],
+    sampling_frequency: int,
+    duration: float,
+    start_time: float,
+) -> jnpt.ArrayLike:
+    t = jnp.linspace(start_time, duration + start_time, duration * sampling_frequency)
+    time_domain_parametric_glitch = fast_scattering_g_of_t_jax(
+        t, scattering_parameter=sampling_paraemters, scattering_window=scattering_window
+    )
+    amplitude_tukey = tukey(t.shape[0], alpha=0.2)
+    return (
+        jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
+        / sampling_frequency
+    )
+
 
 ################################################################################
 ################################################################################
@@ -315,6 +481,67 @@ def slow_scattering_f_of_t_all_arches_jax(
     )
     f_of_t_all_arches = jnp.outer(f_harm_k, modulation_of_t)
     return f_of_t_all_arches
+
+
+@partial(jax.jit)
+def fast_scattering_f_of_t_jax(
+    t: jnpt.ArrayLike, scattering_parameters: jnpt.ArrayLike
+) -> jnpt.ArrayLike:
+    """Gives the frequency as a function of time for idealized
+    fast scattering. Used for smooth windowing when integrated
+    to phi(t) for generating strain.
+    The frequency will thus take the form:
+    $f(t) = c_1 f_1 cos(2 \\pi f_1 (t - t_1)) +
+    c_2 f_2 cos(2 \\pi f_2 (t - t_2))$
+
+    Parameters
+    ==========
+        t : jnpt.ArrayLike
+            The times for which to evaluate the
+            frequencies, of shape (N,)
+        scattering_parameters : jnpt.ArrayLike
+            The parameters to generate the frequency evolution
+            of the fast scattering glitch.
+            [0] is t_1, the central time associated with the first
+            frequency, which to establish convention will be
+            the lower (microseism) frequency. This will also    ```
+            be treated as the geocent_time for purposes of
+            bilby compatibility
+            [1] is t_2, the central time associated with the second
+            frequency, which to establish convention will be
+            the higher (anthropogenic) frequency
+            [2] is f_1, the first frequency, which we'll assume
+            for sake of convention is the lower
+            (microseism) frequency
+            [3] is f_2, the second frequency, which we'll assume
+            for the sake of convention is the higher
+            (anthropogenic) frequency
+            [4] is c_1, the first frequency coefficient, associated
+            to the lower frequency f_1
+            [5] is c_2, the second frequency coefficient, associated
+            to the higher frequency f_2
+
+    Returns
+    =======
+        jnpt.ArrayLike
+            The frequency of the fast scattering as a function of the
+            time array input.
+    """
+    first_frequency_term = (
+        scattering_parameters[4]
+        * scattering_parameters[2]
+        * jnp.cos(
+            2 * jnp.pi * scattering_parameters[2] * (t - scattering_parameters[0])
+        )
+    )
+    second_frequency_term = (
+        scattering_parameters[5]
+        * scattering_parameters[3]
+        * jnp.cos(
+            2 * jnp.pi * scattering_parameters[3] * (t - scattering_parameters[1])
+        )
+    )
+    return first_frequency_term + second_frequency_term
 
 
 ################################################################################

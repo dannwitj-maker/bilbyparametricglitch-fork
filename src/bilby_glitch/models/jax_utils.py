@@ -1,6 +1,6 @@
 """Methods which are useful for jax but not implemented for whatever reason"""
 
-from jax._src.numpy import (
+from jax._src.numpy.lax_numpy import (
     util,
     np,
     partial,
@@ -11,14 +11,21 @@ from jax._src.numpy import (
     diff,
     moveaxis,
 )
+import jax.numpy as jnp
+import jax.typing as jnpt
 
 
-@util.implements(getattr(np, "trapezoid", getattr(np, "trapz", None)))
-@partial(jit, static_argnames=("axis",))
+@partial(jit, static_argnames=("axis", "initial"))
 def cumulative_trapezoid(
-    y: ArrayLike, x: ArrayLike | None = None, dx: ArrayLike = 1.0, axis: int = -1
+    y: ArrayLike,
+    x: ArrayLike | None = None,
+    dx: ArrayLike = 1.0,
+    axis: int = -1,
+    initial=None,
 ) -> Array:
-    """Almost exact"""
+    """Almost exact, built in combination from jax cumsum and scipy's
+    cumulative_trapezoid.
+    """
     dx_array: Array
     if x is None:
         util.check_arraylike("trapezoid", y)
@@ -32,4 +39,71 @@ def cumulative_trapezoid(
         else:
             dx_array = moveaxis(diff(x_arr, axis=axis), axis, -1)
     y_arr = moveaxis(y_arr, axis, -1)
-    return 0.5 * (dx_array * (y_arr[..., 1:] + y_arr[..., :-1])).cumsum(-1)
+    res = 0.5 * (dx_array * (y_arr[..., 1:] + y_arr[..., :-1])).cumsum(-1)
+    if initial is None:
+        return res
+    else:
+        return jnp.concat([jnp.array([initial]), res], axis=0)
+
+
+def tukey(M, alpha=0.5):
+    """Return a Tukey window, also known as a tapered cosine window.
+    This snippet is copied from symjax
+    https://symjax.readthedocs.io/en/latest/_modules/symjax/tensor/signal.html
+
+    Parameters
+    ==========
+    M : int
+        Number of points in the output window. If zero or less, an empty
+        array is returned.
+    alpha : float, optional
+        Shape parameter of the Tukey window, representing the fraction of the
+        window inside the cosine tapered region.
+        If zero, the Tukey window is equivalent to a rectangular window.
+        If one, the Tukey window is equivalent to a Hann window.
+
+    Returns
+    =======
+    w : ndarray
+        The window, with the maximum value normalized to 1 (though the value 1
+        does not appear if `M` is even and `sym` is True).
+
+    References
+    ==========
+    .. [1] Harris, Fredric J. (Jan 1978). "On the use of Windows for Harmonic
+           Analysis with the Discrete Fourier Transform". Proceedings of the
+           IEEE 66 (1): 51-83. :doi:`10.1109/PROC.1978.10837`
+    .. [2] Wikipedia, "Window function",
+           https://en.wikipedia.org/wiki/Window_function#Tukey_window
+    """
+    n = jnp.arange(0, M)
+    width = int(jnp.floor(alpha * (M - 1) / 2.0))
+    n1 = n[0 : width + 1]
+    n2 = n[width + 1 : M - width - 1]
+    n3 = n[M - width - 1 :]
+
+    w1 = 0.5 * (1 + jnp.cos(jnp.pi * (-1 + 2.0 * n1 / alpha / (M - 1))))
+    w2 = jnp.ones(n2.shape)
+    w3 = 0.5 * (1 + jnp.cos(jnp.pi * (-2.0 / alpha + 1 + 2.0 * n3 / alpha / (M - 1))))
+
+    w = jnp.concatenate((w1, w2, w3))
+
+    return w
+
+
+def index_of_nearest_value(value: float, array: jnpt.ArrayLike) -> int:
+    """Gets the index of the array element nearest to the value.
+
+    Parameters
+    ==========
+        value : float
+            The value to which the array is compared
+        array : jnpt.ArrayLike
+            The array being compared
+
+    Returns
+    =======
+        int
+            The index of the element in the array nearest to the value
+    """
+    return jnp.abs(array - value).argmin()

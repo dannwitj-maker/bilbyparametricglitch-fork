@@ -3,7 +3,9 @@ import copy
 import numpy as np
 from pandas import DataFrame
 
-from .models.glitch_foft_models import slow_scattering_single_arch_f_of_t
+from .models.parametric_glitch_models import (
+    slow_scattering_f_of_t_single_arch_with_keyword,
+)
 
 from typing import Optional, List
 
@@ -36,7 +38,7 @@ def posterior_of_arch_tracks(
         central_time = geocent_time + interferometer.time_delay_from_geocenter(
             0, 0, geocent_time
         )
-        sample_foft = slow_scattering_single_arch_f_of_t(
+        sample_foft = slow_scattering_f_of_t_single_arch_with_keyword(
             interferometer.time_array,
             central_time,
             modulation_frequency,

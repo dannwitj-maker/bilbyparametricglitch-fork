@@ -5,7 +5,11 @@ import jax
 import copy
 from bilby.gw.detector import get_empty_interferometer
 
-from .parametric_glitch_models import jax_slow_scattering_g_of_f, jax_wavelet_g_of_f
+from .parametric_glitch_models import (
+    slow_scattering_g_of_f_jax,
+    wavelet_g_of_f_jax,
+    fast_scattering_g_of_f_jax,
+)
 
 import inspect
 import makefun
@@ -69,6 +73,24 @@ SINGLE_WAVELET_SAMPLING_PARAMETERS = [
 
 SINGLE_WAVELET_HELPER_PARAMETERS = ["start_time"]
 
+FAST_SCATTERING_SAMPLING_PARAMETERS = [
+    "geocent_time",
+    "scatterer_time_offset_2",
+    "frequency_1",
+    "frequency_2",
+    "motion_coefficient_1",
+    "motion_coefficient_2",
+    "phi",
+    "amplitude",
+]
+
+FAST_SCATTERING_HELPER_PARAMETERS = [
+    "sampling_frequency",
+    "duration",
+    "start_time",
+    "scattering_window",
+]
+
 
 class WrappedGlitchFunction:
     """A wrapped glitch function with some helper metadata,
@@ -93,14 +115,19 @@ class WrappedGlitchFunction:
 
 
 single_wavelet_frequency_domain = WrappedGlitchFunction(
-    jax_wavelet_g_of_f,
+    wavelet_g_of_f_jax,
     sampling_parameters=SINGLE_WAVELET_SAMPLING_PARAMETERS,
     helper_parameters=SINGLE_WAVELET_HELPER_PARAMETERS,
 )
 slow_scattering_frequency_domain = WrappedGlitchFunction(
-    jax_slow_scattering_g_of_f,
+    slow_scattering_g_of_f_jax,
     sampling_parameters=SLOW_SCATTERING_SAMPLING_PARAMETERS,
     helper_parameters=SLOW_SCATTERING_HELPER_PARAMETERS,
+)
+fast_scattering_frequency_domain = WrappedGlitchFunction(
+    fast_scattering_g_of_f_jax,
+    sampling_parameters=FAST_SCATTERING_SAMPLING_PARAMETERS,
+    helper_parameters=FAST_SCATTERING_HELPER_PARAMETERS,
 )
 
 
