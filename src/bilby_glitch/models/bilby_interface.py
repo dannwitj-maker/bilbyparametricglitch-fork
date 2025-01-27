@@ -71,6 +71,11 @@ SINGLE_WAVELET_HELPER_PARAMETERS = ["start_time"]
 
 
 class WrappedGlitchFunction:
+    """A wrapped glitch function with some helper metadata,
+    this is used to create a bilby API compatible glitch function
+    out of a jax (array input) glitch function.
+    """
+
     def __init__(self, function, sampling_parameters, helper_parameters):
         self.function = function
         self.sampling_parameters = sampling_parameters

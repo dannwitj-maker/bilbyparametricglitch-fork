@@ -1,11 +1,7 @@
-from . import (
-    bilby_glitch_models,
+from .models import (
+    bilby_interface,
     glitch_foft_models,
-    joint_likelihood,
-    plotting,
-    result,
-    series_transforms,
-    waveform_generator,
     parametric_glitch_models,
-    pipe
+    series_transforms,
 )
+from . import joint_likelihood, plotting, result, waveform_generator, pipe

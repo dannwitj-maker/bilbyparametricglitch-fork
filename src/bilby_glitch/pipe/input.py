@@ -13,13 +13,13 @@ from bilby_pipe.utils import (
     import_module,
 )
 
-from ..bilby_glitch_models import (
+from ..models.bilby_interface import (
     populate_unused_parameters,
     single_wavelet_frequency_domain,
     slow_scattering_frequency_domain,
 )
 
-from ..legacy_bilby_glitch_models import (
+from ..models.legacy_bilby_interface import (
     slow_scattering,
     slow_scattering_shifting_frequency,
     SLOW_SCATTERING_PARAMETERS,
