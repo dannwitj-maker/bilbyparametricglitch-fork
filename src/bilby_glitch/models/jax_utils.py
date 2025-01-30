@@ -13,6 +13,9 @@ from jax._src.numpy.lax_numpy import (
 )
 import jax.numpy as jnp
 import jax.typing as jnpt
+import jax
+
+jax.config.update("jax_enable_x64", True)
 
 
 @partial(jit, static_argnames=("axis", "initial"))
@@ -46,6 +49,7 @@ def cumulative_trapezoid(
         return jnp.concat([jnp.array([initial]), res], axis=0)
 
 
+@partial(jax.jit, static_argnames=("M", "alpha"))
 def tukey(M, alpha=0.5):
     """Return a Tukey window, also known as a tapered cosine window.
     This snippet is copied from symjax
@@ -77,16 +81,21 @@ def tukey(M, alpha=0.5):
            https://en.wikipedia.org/wiki/Window_function#Tukey_window
     """
     n = jnp.arange(0, M)
-    width = int(jnp.floor(alpha * (M - 1) / 2.0))
-    n1 = n[0 : width + 1]
-    n2 = n[width + 1 : M - width - 1]
-    n3 = n[M - width - 1 :]
+    width = (jnp.floor(alpha * (M - 1) / 2.0)).astype(int)
 
-    w1 = 0.5 * (1 + jnp.cos(jnp.pi * (-1 + 2.0 * n1 / alpha / (M - 1))))
-    w2 = jnp.ones(n2.shape)
-    w3 = 0.5 * (1 + jnp.cos(jnp.pi * (-2.0 / alpha + 1 + 2.0 * n3 / alpha / (M - 1))))
+    # n1 = n[0 : width + 1]
+    # n2 = n[width + 1 : M - width - 1]
+    # n3 = n[M - width - 1 :]
 
-    w = jnp.concatenate((w1, w2, w3))
+    w = jnp.ones_like(n)
+    w = jnp.where(
+        n <= width, 0.5 * (1 + jnp.cos(jnp.pi * (-1 + 2.0 * n / alpha / (M - 1)))), w
+    )
+    w = jnp.where(
+        n >= M - width,
+        0.5 * (1 + jnp.cos(jnp.pi * (-2.0 / alpha + 1 + 2.0 * n / alpha / (M - 1)))),
+        w,
+    )
 
     return w
 

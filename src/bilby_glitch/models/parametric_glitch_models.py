@@ -10,6 +10,9 @@ from .jax_utils import tukey, index_of_nearest_value, cumulative_trapezoid
 
 from typing import Tuple
 
+jax.config.update("jax_enable_x64", True)
+
+
 ################################################################################
 ################################################################################
 ##########################    JAX Strain Functions    ##########################
@@ -121,14 +124,14 @@ def slow_scattering_phi_of_t_jax(
     return windowed_phi_of_t
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "number_of_arches",
-        "groups_left_of_center",
-        "groups_right_of_center",
-    ),
-)
+# @partial(
+#     jax.jit,
+#     static_argnames=(
+#         "number_of_arches",
+#         "groups_left_of_center",
+#         "groups_right_of_center",
+#     ),
+# )
 def slow_scattering_g_of_t_jax(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
@@ -171,8 +174,11 @@ def slow_scattering_g_of_t_jax(
     )
 
     arches_amplitudes = sampling_parameters[14:][:, jnp.newaxis]
+    print(arches_amplitudes)
     arches_g_of_t_unmasked = jnp.sin(arches_phi_of_t) * arches_amplitudes
     arches_g_of_t_masked = arches_g_of_t_unmasked[arches_mask]
+    print(arches_g_of_t_unmasked)
+    print(arches_mask)
     g_of_t = jnp.sum(arches_g_of_t_masked, axis=0)
 
     return g_of_t
@@ -231,7 +237,7 @@ def slow_scattering_g_of_f_jax(
         groups_left_of_center=groups_left_of_center,
         groups_right_of_center=groups_right_of_center,
     )
-    amplitude_tukey = tukey(t.shape[0], alpha=0.2)
+    amplitude_tukey = tukey(duration * sampling_frequency, alpha=0.2)
     return (
         jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
         / sampling_frequency
@@ -271,7 +277,7 @@ def wavelet_g_of_f_jax(
 @partial(jax.jit, static_argnames=("scattering_window"))
 def fast_scattering_phi_of_t_jax(
     t: jnpt.ArrayLike,
-    scattering_parameters: jnpt.ArrayLike,
+    sampling_parameters: jnpt.ArrayLike,
     scattering_window: Tuple[float, float],
 ) -> jnpt.ArrayLike:
     """Generates $\\phi(t)$ for a fast scattering model,
@@ -288,7 +294,7 @@ def fast_scattering_phi_of_t_jax(
         t : jnpt.ArrayLike
             The times for which to evaluate the
             frequencies, of shape (N,)
-        scattering_parameters : jnpt.ArrayLike
+        sampling_parameters : jnpt.ArrayLike
             The parameters to generate the frequency evolution
             of the fast scattering glitch.
             [0] is t_1, the central time associated with the first
@@ -320,29 +326,46 @@ def fast_scattering_phi_of_t_jax(
         jnpt.ArrayLike
             The phi(t) associated with the fast scattering
     """
-    f_of_t = fast_scattering_f_of_t_jax(t, scattering_parameters[:-1])
+    f_of_t = fast_scattering_f_of_t_jax(t, sampling_parameters[:-1])
 
-    zero_crossings = jnp.argwhere(jnp.isclose(f_of_t, 0, atol=0.5))
-    index_of_lower_window_time = index_of_nearest_value(scattering_window[0], t)
-    index_of_upper_window_time = index_of_nearest_value(scattering_window[1], t)
-    nearest_lower_zero_crossing = zero_crossings[
-        index_of_nearest_value(index_of_lower_window_time, zero_crossings)
-    ]
-    nearest_upper_zero_crossing = zero_crossings[
-        index_of_nearest_value(index_of_upper_window_time, zero_crossings)
-    ]
+    # Here begins something contrived
+    # The goal is to
+    below_window_and_zero_crossing = (jnp.isclose(f_of_t, 0, atol=0.5)) & (
+        t <= scattering_window[0]
+    )
+    indices_below_window_and_zero_crossing = jnp.where(
+        below_window_and_zero_crossing,
+        jnp.indices(t.shape).flatten(),
+        jnp.zeros_like(t),
+    )
+    above_window_and_zero_crossing = (jnp.isclose(f_of_t, 0, atol=0.5)) & (
+        t >= scattering_window[1]
+    )
+    indices_above_window_and_zero_crossing = jnp.where(
+        above_window_and_zero_crossing,
+        jnp.indices(t.shape).flatten(),
+        jnp.ones_like(t) * (t.shape[0] + 1),
+    )
 
-    indices = jnp.indices(t.shape)
+    index_last_crossing_before_window = jnp.argmax(
+        indices_below_window_and_zero_crossing
+    )
+    index_first_crossing_after_window = jnp.argmin(
+        indices_above_window_and_zero_crossing
+    )
+
     windowed_fast_scattering_f_of_t = jnp.where(
-        (indices <= nearest_lower_zero_crossing)
-        | (indices >= nearest_upper_zero_crossing),
-        jnp.zeros_like(f_of_t),
+        (jnp.indices(t.shape) <= index_last_crossing_before_window)
+        | (jnp.indices(t.shape) >= index_first_crossing_after_window),
+        jnp.zeros_like(t),
         f_of_t,
     )
 
     phi_of_t = (
-        cumulative_trapezoid(windowed_fast_scattering_f_of_t, t, initial=0) * 2 * jnp.pi
-        + scattering_parameters[6]
+        cumulative_trapezoid(windowed_fast_scattering_f_of_t.flatten(), t, initial=0)
+        * 2
+        * jnp.pi
+        + sampling_parameters[6]
     )
     return phi_of_t
 
@@ -350,7 +373,7 @@ def fast_scattering_phi_of_t_jax(
 @partial(jax.jit, static_argnames=("scattering_window"))
 def fast_scattering_g_of_t_jax(
     t: jnpt.ArrayLike,
-    scattering_parameters: jnpt.ArrayLike,
+    sampling_parameters: jnpt.ArrayLike,
     scattering_window: Tuple[float, float],
 ) -> jnpt.ArrayLike:
     """
@@ -360,7 +383,7 @@ def fast_scattering_g_of_t_jax(
         t : jnpt.ArrayLike
             The times for which to evaluate the
             frequencies, of shape (N,)
-        scattering_parameters : jnpt.ArrayLike
+        sampling_parameters : jnpt.ArrayLike
             The parameters to generate the frequency evolution
             of the fast scattering glitch.
             [0] is t_1, the central time associated with the first
@@ -394,9 +417,9 @@ def fast_scattering_g_of_t_jax(
         The glitch signal for this fast scattering glitch
     """
     phi_of_t = fast_scattering_phi_of_t_jax(
-        t, scattering_parameters[:-1], scattering_window=scattering_window
+        t, sampling_parameters[:-1], scattering_window=scattering_window
     )
-    g_of_t = scattering_parameters[7] * jnp.sin(phi_of_t)
+    g_of_t = sampling_parameters[7] * jnp.sin(phi_of_t)
 
     return g_of_t
 
@@ -412,7 +435,7 @@ def fast_scattering_g_of_t_jax(
 )
 def fast_scattering_g_of_f_jax(
     f: jnpt.ArrayLike,
-    sampling_paraemters: jnpt.ArrayLike,
+    sampling_parameters: jnpt.ArrayLike,
     scattering_window: Tuple[float, float],
     sampling_frequency: int,
     duration: float,
@@ -420,9 +443,9 @@ def fast_scattering_g_of_f_jax(
 ) -> jnpt.ArrayLike:
     t = jnp.linspace(start_time, duration + start_time, duration * sampling_frequency)
     time_domain_parametric_glitch = fast_scattering_g_of_t_jax(
-        t, scattering_parameter=sampling_paraemters, scattering_window=scattering_window
+        t, sampling_parameters=sampling_parameters, scattering_window=scattering_window
     )
-    amplitude_tukey = tukey(t.shape[0], alpha=0.2)
+    amplitude_tukey = tukey(duration * sampling_frequency, alpha=0.2)
     return (
         jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
         / sampling_frequency
@@ -438,7 +461,7 @@ def fast_scattering_g_of_f_jax(
 
 @partial(jax.jit, static_argnames=("number_of_arches"))
 def slow_scattering_f_of_t_all_arches_jax(
-    t: jnpt.ArrayLike, scattering_parameters: jnpt.ArrayLike, number_of_arches: int = 10
+    t: jnpt.ArrayLike, sampling_parameters: jnpt.ArrayLike, number_of_arches: int = 10
 ) -> jnpt.ArrayLike:
     """Produces the frequency as a function
     of time for each arch in a stack.
@@ -451,7 +474,7 @@ def slow_scattering_f_of_t_all_arches_jax(
         t : jnpt.ArrayLike
             The times for which to evaluate the
             frequencies, of shape (N,)
-        scattering_parameters : jnpt.ArrayLike
+        sampling_parameters : jnpt.ArrayLike
             [0] is the central time, which sets
             the time at which the arches peak
             [1] is the modulation_frequency
@@ -473,11 +496,10 @@ def slow_scattering_f_of_t_all_arches_jax(
             length of the timeseries.
     """
     f_harm_k = (
-        jnp.arange(number_of_arches) * scattering_parameters[3]
-        + scattering_parameters[2]
+        jnp.arange(number_of_arches) * sampling_parameters[3] + sampling_parameters[2]
     )
     modulation_of_t = jnp.cos(
-        2 * jnp.pi * scattering_parameters[1] * (t - scattering_parameters[0])
+        2 * jnp.pi * sampling_parameters[1] * (t - sampling_parameters[0])
     )
     f_of_t_all_arches = jnp.outer(f_harm_k, modulation_of_t)
     return f_of_t_all_arches
@@ -485,7 +507,7 @@ def slow_scattering_f_of_t_all_arches_jax(
 
 @partial(jax.jit)
 def fast_scattering_f_of_t_jax(
-    t: jnpt.ArrayLike, scattering_parameters: jnpt.ArrayLike
+    t: jnpt.ArrayLike, sampling_parameters: jnpt.ArrayLike
 ) -> jnpt.ArrayLike:
     """Gives the frequency as a function of time for idealized
     fast scattering. Used for smooth windowing when integrated
@@ -499,7 +521,7 @@ def fast_scattering_f_of_t_jax(
         t : jnpt.ArrayLike
             The times for which to evaluate the
             frequencies, of shape (N,)
-        scattering_parameters : jnpt.ArrayLike
+        sampling_parameters : jnpt.ArrayLike
             The parameters to generate the frequency evolution
             of the fast scattering glitch.
             [0] is t_1, the central time associated with the first
@@ -528,18 +550,14 @@ def fast_scattering_f_of_t_jax(
             time array input.
     """
     first_frequency_term = (
-        scattering_parameters[4]
-        * scattering_parameters[2]
-        * jnp.cos(
-            2 * jnp.pi * scattering_parameters[2] * (t - scattering_parameters[0])
-        )
+        sampling_parameters[4]
+        * sampling_parameters[2]
+        * jnp.cos(2 * jnp.pi * sampling_parameters[2] * (t - sampling_parameters[0]))
     )
     second_frequency_term = (
-        scattering_parameters[5]
-        * scattering_parameters[3]
-        * jnp.cos(
-            2 * jnp.pi * scattering_parameters[3] * (t - scattering_parameters[1])
-        )
+        sampling_parameters[5]
+        * sampling_parameters[3]
+        * jnp.cos(2 * jnp.pi * sampling_parameters[3] * (t - sampling_parameters[1]))
     )
     return first_frequency_term + second_frequency_term
 

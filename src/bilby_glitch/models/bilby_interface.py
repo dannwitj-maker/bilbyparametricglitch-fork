@@ -29,9 +29,9 @@ if TYPE_CHECKING:
 
 SLOW_SCATTERING_SAMPLING_PARAMETERS = [
     "geocent_time",
-    "harmonic_frequency_delta",
     "modulation_frequency",
     "base_harmonic_frequency",
+    "harmonic_frequency_delta",
     "phi_0",
     "phi_1",
     "phi_2",
@@ -314,6 +314,7 @@ def bilbify_parametric_glitch(
             * jnp.pi
             * 1j
             * (segment_end_time - kwargs["geocent_time"] - detector_time_delay)
+            * f
         )
 
         return {
