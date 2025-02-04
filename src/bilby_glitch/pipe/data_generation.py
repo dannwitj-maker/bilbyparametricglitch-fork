@@ -25,7 +25,7 @@ from bilby_pipe.data_generation import DataGenerationInput
 
 from .input import GlitchInput
 from .parser import glitch_create_parser
-from ..models.bilby_interface import _blank_frequency_domain_source_model
+from ..bilby_interface.bilby_interface import _blank_frequency_domain_source_model
 
 
 class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
@@ -132,6 +132,11 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                 self.joint_injection_waveform_generator_parametric_models = (
                     args.joint_injection_waveform_generator_parametric_models
                 )
+            print(self.joint_waveform_generator_source_models)
+            print(self.joint_injection_waveform_generator_source_models)
+            self._cleanup_joint_injection_models()
+            print(self.joint_waveform_generator_source_models)
+            print(self.joint_injection_waveform_generator_source_models)
 
         if args.injection_frequency_domain_source_model is None:
             self.injection_frequency_domain_source_model = (

@@ -1,14 +1,15 @@
 import logging
-import numpy as np
-import jax.numpy as jnp
-import jax
 import copy
 from bilby.gw.detector import get_empty_interferometer
 
-from .parametric_glitch_models import (
-    slow_scattering_g_of_f_jax,
-    wavelet_g_of_f_jax,
-    fast_scattering_g_of_f_jax,
+import numpy as np
+
+xp = np
+
+from ..models.parametric_glitch_models import (
+    slow_scattering_g_of_f_array,
+    wavelet_g_of_f_array,
+    fast_scattering_g_of_f_array,
 )
 
 import inspect
@@ -75,7 +76,7 @@ SINGLE_WAVELET_HELPER_PARAMETERS = ["start_time"]
 
 FAST_SCATTERING_SAMPLING_PARAMETERS = [
     "geocent_time",
-    "scatterer_time_offset_2",
+    "second_scatterer_offset",
     "frequency_1",
     "frequency_2",
     "motion_coefficient_1",
@@ -88,7 +89,8 @@ FAST_SCATTERING_HELPER_PARAMETERS = [
     "sampling_frequency",
     "duration",
     "start_time",
-    "scattering_window",
+    "scattering_lower_window",
+    "scattering_upper_window",
 ]
 
 
@@ -115,17 +117,17 @@ class WrappedGlitchFunction:
 
 
 single_wavelet_frequency_domain = WrappedGlitchFunction(
-    wavelet_g_of_f_jax,
+    wavelet_g_of_f_array,
     sampling_parameters=SINGLE_WAVELET_SAMPLING_PARAMETERS,
     helper_parameters=SINGLE_WAVELET_HELPER_PARAMETERS,
 )
 slow_scattering_frequency_domain = WrappedGlitchFunction(
-    slow_scattering_g_of_f_jax,
+    slow_scattering_g_of_f_array,
     sampling_parameters=SLOW_SCATTERING_SAMPLING_PARAMETERS,
     helper_parameters=SLOW_SCATTERING_HELPER_PARAMETERS,
 )
 fast_scattering_frequency_domain = WrappedGlitchFunction(
-    fast_scattering_g_of_f_jax,
+    fast_scattering_g_of_f_array,
     sampling_parameters=FAST_SCATTERING_SAMPLING_PARAMETERS,
     helper_parameters=FAST_SCATTERING_HELPER_PARAMETERS,
 )
@@ -167,12 +169,12 @@ def populate_unused_parameters(
 
 def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
     """A placeholder for when no CBC is passed to a joint analysis"""
-    return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
+    return {"plus": xp.zeros(f.shape), "cross": xp.zeros(f.shape)}
 
 
 def bilbify_parametric_glitch(
-    duration: float,
-    sampling_frequency: float,
+    duration: int,
+    sampling_frequency: int,
     start_time: float,
     glitch_name: str,
     glitch_interferometer: str,
@@ -218,9 +220,9 @@ def bilbify_parametric_glitch(
         else fixed_glitch_waveform_arguments
     )
 
-    fixed_glitch_waveform_arguments["duration"] = duration
+    fixed_glitch_waveform_arguments["duration"] = int(duration)
     fixed_glitch_waveform_arguments["start_time"] = start_time
-    fixed_glitch_waveform_arguments["sampling_frequency"] = sampling_frequency
+    fixed_glitch_waveform_arguments["sampling_frequency"] = int(sampling_frequency)
 
     # Applying some convention to do introspection
     # Track "sampling_parameters" for the function
@@ -229,15 +231,15 @@ def bilbify_parametric_glitch(
     # All other args will be handled as kwargs
     if time_domain_parametric_glitch_function is not None:
         # Produce the time array which will actually be used for TD analyses
-        t = jnp.linspace(
-            start_time, duration + start_time, duration * sampling_frequency
+        t = xp.linspace(
+            start_time, duration + start_time, int(duration * sampling_frequency)
         )
 
         def frequency_domain_parametric_glitch_function(f, **kwargs):
             time_domain_parametric_glitch = time_domain_parametric_glitch_function(
                 t, time_domain_parametric_glitch_function.sampling_parameters, **kwargs
             )
-            return jnp.fft.rfft(time_domain_parametric_glitch) / sampling_frequency
+            return xp.fft.rfft(time_domain_parametric_glitch) / sampling_frequency
 
         frequency_domain_parametric_glitch_function = WrappedGlitchFunction(
             frequency_domain_parametric_glitch_function,
@@ -259,7 +261,7 @@ def bilbify_parametric_glitch(
         inspect.Parameter(
             name="f",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            annotation=np.typing.ArrayLike,
+            annotation=xp.typing.ArrayLike,
         )
     )
     for parameter in frequency_domain_parametric_glitch_function.sampling_parameters:
@@ -287,7 +289,7 @@ def bilbify_parametric_glitch(
         func_signature=signature,
     )
     def bilby_glitch_function(f, **kwargs):
-        sampling_parameters = jnp.array(
+        sampling_parameters = xp.array(
             [
                 kwargs[x]
                 for x in frequency_domain_parametric_glitch_function.sampling_parameters
@@ -309,18 +311,18 @@ def bilbify_parametric_glitch(
         # This is just exp(-2*pi*i*(t_end - t_0))
         # t_0 being whatever time parameter the model uses, which this automatically assumes to be in
         # detector frame (applying the detector time delay accordingly)
-        g_of_f *= jnp.exp(
+        g_of_f *= xp.exp(
             -2
-            * jnp.pi
+            * xp.pi
             * 1j
             * (segment_end_time - kwargs["geocent_time"] - detector_time_delay)
             * f
         )
 
         return {
-            "plus": np.zeros(g_of_f.shape),
-            "cross": np.zeros(g_of_f.shape),
-            glitch_name: np.array(g_of_f),
+            "plus": xp.zeros(g_of_f.shape),
+            "cross": xp.zeros(g_of_f.shape),
+            glitch_name: xp.array(g_of_f),
         }
 
     return bilby_glitch_function

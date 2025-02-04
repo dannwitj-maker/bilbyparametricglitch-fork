@@ -13,10 +13,11 @@ from bilby_pipe.utils import (
     import_module,
 )
 
-from ..models.bilby_interface import (
+from ..bilby_interface.bilby_interface import (
     populate_unused_parameters,
     single_wavelet_frequency_domain,
     slow_scattering_frequency_domain,
+    fast_scattering_frequency_domain,
 )
 
 from ..models.legacy_bilby_interface import (
@@ -418,6 +419,10 @@ class GlitchInput(Input):
                 self._joint_waveform_generator_parametric_models[
                     index_name
                 ] = single_wavelet_frequency_domain
+            elif model_name == "fast_scattering":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = fast_scattering_frequency_domain
             elif "." in model_name:
                 self._joint_waveform_generator_parametric_models[
                     index_name
@@ -464,6 +469,11 @@ class GlitchInput(Input):
                 self._joint_waveform_generator_parametric_models.keys(),
                 self._joint_waveform_generator_source_models,
             )
+        )
+        logger.info(
+            "Post-cleanup:\n"
+            f"{self._joint_waveform_generator_source_models}"
+            f"{self._joint_waveform_generator_parametric_models}"
         )
 
     @property
@@ -602,6 +612,10 @@ class GlitchInput(Input):
                 self._joint_injection_waveform_generator_parametric_models[
                     index_name
                 ] = single_wavelet_frequency_domain
+            elif model_name == "fast_scattering":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = fast_scattering_frequency_domain
             elif "." in model_name:
                 self._joint_injection_waveform_generator_parametric_models[
                     index_name

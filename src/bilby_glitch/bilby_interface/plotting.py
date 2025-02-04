@@ -3,7 +3,7 @@ import copy
 import numpy as np
 from pandas import DataFrame
 
-from .models.parametric_glitch_models import (
+from ..models.parametric_glitch_models import (
     slow_scattering_f_of_t_single_arch_with_keyword,
 )
 

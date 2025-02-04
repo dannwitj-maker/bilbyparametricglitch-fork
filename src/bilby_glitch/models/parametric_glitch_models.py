@@ -1,17 +1,15 @@
-import jax
-import jax.numpy as jnp
 import jax.typing as jnpt
 from functools import partial
 
-import numpy as np
-
 from .series_transforms import taper_off, taper_on
-from .jax_utils import tukey, index_of_nearest_value, cumulative_trapezoid
 
-from typing import Tuple
+from ..backend_utilities.backend import _configure_numpy_and_scipy
 
-jax.config.update("jax_enable_x64", True)
+import numpy as np
+import scipy as scs
 
+xp = np
+_configure_numpy_and_scipy(xp, scs)
 
 ################################################################################
 ################################################################################
@@ -20,8 +18,7 @@ jax.config.update("jax_enable_x64", True)
 ################################################################################
 
 
-@partial(jax.jit, static_argnames=("groups_left_of_center", "groups_right_of_center"))
-def slow_scattering_phi_of_t_jax(
+def slow_scattering_phi_of_t_array(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
     groups_left_of_center: int = 0,
@@ -62,83 +59,75 @@ def slow_scattering_phi_of_t_jax(
     """
 
     # Get all peak harmonic frequencies
-    f_harm_k = jnp.arange(10) * sampling_parameters[3] + sampling_parameters[2]
+    f_harm_k = xp.arange(10) * sampling_parameters[3] + sampling_parameters[2]
     # Get baseline phi(t) behavior i.e. the appropriate sinusoid for all arches
-    modulation_of_t = jnp.sin(
-        2 * jnp.pi * sampling_parameters[1] * (t - sampling_parameters[0])
+    modulation_of_t = xp.sin(
+        2 * xp.pi * sampling_parameters[1] * (t - sampling_parameters[0])
     )
     # Get correctly scaled phi(t) i.e. the indefinite integral of d phi / d t
     # For each arch
-    phi_of_t = jnp.outer(f_harm_k, modulation_of_t) / sampling_parameters[1]
+    phi_of_t = xp.outer(f_harm_k, modulation_of_t) / sampling_parameters[1]
     # Add respective phases for each (i.e. setting boundary conditions on integral)
-    phi_of_t += sampling_parameters[4:14][:, jnp.newaxis]
+    phi_of_t += sampling_parameters[4:14][:, xp.newaxis]
 
     # Get an array which is just the minimum of each row, with shape of phi_of_t
-    minimums_array = jnp.repeat(
-        jnp.min(phi_of_t, axis=1)[:, jnp.newaxis], phi_of_t.shape[1], axis=1
+    minimums_array = xp.repeat(
+        xp.min(phi_of_t, axis=1)[:, xp.newaxis], phi_of_t.shape[1], axis=1
     )
     # Get the corresponding maximums array
-    maximums_array = jnp.repeat(
-        jnp.max(phi_of_t, axis=1)[:, jnp.newaxis], phi_of_t.shape[1], axis=1
+    maximums_array = xp.repeat(
+        xp.max(phi_of_t, axis=1)[:, xp.newaxis], phi_of_t.shape[1], axis=1
     )
     # Get the condition where we cut out all earlier arches
     # This is the left side of the central arch (1/4 of modulation frequency)
     # Then the full width of the other arches (each 1/2 of modulation frequency)
-    lower_window_condition_array = jnp.repeat(
+    lower_window_condition_array = xp.repeat(
         (
             t
             < sampling_parameters[0]
             - (1 / 4 + groups_left_of_center / 2) / sampling_parameters[1]
-        )[jnp.newaxis, :],
+        )[xp.newaxis, :],
         10,
         axis=0,
     )
     # Get the corresponding upper condition
-    upper_window_condition_array = jnp.repeat(
+    upper_window_condition_array = xp.repeat(
         (
             t
             > sampling_parameters[0]
             + (1 / 4 + groups_right_of_center / 2) / sampling_parameters[1]
-        )[jnp.newaxis, :],
+        )[xp.newaxis, :],
         10,
         axis=0,
     )
 
     # Decide what to fill the left window with.
     # If an even number of arches to left, it ends on a minimum, else on a maximum
-    lower_window_fill = jnp.where(
-        jnp.mod(groups_left_of_center, 2), maximums_array, minimums_array
+    lower_window_fill = xp.where(
+        xp.mod(groups_left_of_center, 2), maximums_array, minimums_array
     )
     # As above but inverted
-    upper_window_fill = jnp.where(
-        jnp.mod(groups_right_of_center, 2), minimums_array, maximums_array
+    upper_window_fill = xp.where(
+        xp.mod(groups_right_of_center, 2), minimums_array, maximums_array
     )
 
     # Actually set the windowed values
-    windowed_phi_of_t = jnp.where(
+    windowed_phi_of_t = xp.where(
         lower_window_condition_array, lower_window_fill, phi_of_t
     )
-    windowed_phi_of_t = jnp.where(
+    windowed_phi_of_t = xp.where(
         upper_window_condition_array, upper_window_fill, windowed_phi_of_t
     )
     return windowed_phi_of_t
 
 
-# @partial(
-#     jax.jit,
-#     static_argnames=(
-#         "number_of_arches",
-#         "groups_left_of_center",
-#         "groups_right_of_center",
-#     ),
-# )
-def slow_scattering_g_of_t_jax(
+def slow_scattering_g_of_t_array(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
     number_of_arches: int = 1,
     groups_left_of_center: int = 0,
     groups_right_of_center: int = 0,
-    **kwargs
+    **kwargs,
 ):
     """A model for slow scattering g(t) in the detector
     when the glitch contains N arches,
@@ -165,37 +154,23 @@ def slow_scattering_g_of_t_jax(
             for each arch
     """
 
-    arches_mask = jnp.arange(number_of_arches)
-    arches_phi_of_t = slow_scattering_phi_of_t_jax(
+    arches_mask = xp.arange(number_of_arches)
+    arches_phi_of_t = slow_scattering_phi_of_t_array(
         t,
         sampling_parameters[0:14],
         groups_left_of_center=groups_left_of_center,
         groups_right_of_center=groups_right_of_center,
     )
 
-    arches_amplitudes = sampling_parameters[14:][:, jnp.newaxis]
-    print(arches_amplitudes)
-    arches_g_of_t_unmasked = jnp.sin(arches_phi_of_t) * arches_amplitudes
+    arches_amplitudes = sampling_parameters[14:][:, xp.newaxis]
+    arches_g_of_t_unmasked = xp.sin(arches_phi_of_t) * arches_amplitudes
     arches_g_of_t_masked = arches_g_of_t_unmasked[arches_mask]
-    print(arches_g_of_t_unmasked)
-    print(arches_mask)
-    g_of_t = jnp.sum(arches_g_of_t_masked, axis=0)
+    g_of_t = xp.sum(arches_g_of_t_masked, axis=0)
 
     return g_of_t
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "sampling_frequency",
-        "duration",
-        "start_time",
-        "number_of_arches",
-        "groups_left_of_center",
-        "groups_right_of_center",
-    ),
-)
-def slow_scattering_g_of_f_jax(
+def slow_scattering_g_of_f_array(
     f: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
     sampling_frequency: int,
@@ -229,23 +204,22 @@ def slow_scattering_g_of_f_jax(
             [14:24] are the respective amplitudes
             for each arch
     """
-    t = jnp.linspace(start_time, duration + start_time, duration * sampling_frequency)
-    time_domain_parametric_glitch = slow_scattering_g_of_t_jax(
+    t = xp.linspace(start_time, duration + start_time, duration * sampling_frequency)
+    time_domain_parametric_glitch = slow_scattering_g_of_t_array(
         t,
         sampling_parameters,
         number_of_arches=number_of_arches,
         groups_left_of_center=groups_left_of_center,
         groups_right_of_center=groups_right_of_center,
     )
-    amplitude_tukey = tukey(duration * sampling_frequency, alpha=0.2)
+    amplitude_tukey = scs.tukey(duration * sampling_frequency, alpha=0.2)
     return (
-        jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
+        xp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
         / sampling_frequency
     )
 
 
-@partial(jax.jit, static_argnames=("start_time"))
-def wavelet_g_of_f_jax(
+def wavelet_g_of_f_array(
     f,
     sampling_parameters,
     start_time: float = 0,
@@ -253,7 +227,7 @@ def wavelet_g_of_f_jax(
     """
     Parameters
     ==========
-    parameters : jnp.array
+    parameters : xp.array
         index 0 -> central_frequency
         index 1 -> central_time
         index 2 -> quality_factor
@@ -261,24 +235,24 @@ def wavelet_g_of_f_jax(
         index 4 -> reference_phase
     """
     time = sampling_parameters[1] - start_time
-    tau = sampling_parameters[2] / (2 * jnp.pi * sampling_parameters[0])
+    tau = sampling_parameters[2] / (2 * xp.pi * sampling_parameters[0])
     A = sampling_parameters[3]
 
-    const = A * tau * jnp.sqrt(jnp.pi) / 2
-    decay_term = jnp.exp(-(tau**2) * jnp.pi**2 * (f - sampling_parameters[0]) ** 2)
+    const = A * tau * xp.sqrt(xp.pi) / 2
+    decay_term = xp.exp(-(tau**2) * xp.pi**2 * (f - sampling_parameters[0]) ** 2)
 
-    Q_decay_term = jnp.exp(-sampling_parameters[2] ** 2 * f / sampling_parameters[0])
-    plus_term = jnp.exp(-1j * (2 * jnp.pi * time * f - sampling_parameters[4]))
-    minus_term = jnp.exp(-1j * (2 * jnp.pi * time * f + sampling_parameters[4]))
+    Q_decay_term = xp.exp(-sampling_parameters[2] ** 2 * f / sampling_parameters[0])
+    plus_term = xp.exp(-1j * (2 * xp.pi * time * f - sampling_parameters[4]))
+    minus_term = xp.exp(-1j * (2 * xp.pi * time * f + sampling_parameters[4]))
 
     return const * decay_term * (plus_term + minus_term * Q_decay_term)
 
 
-@partial(jax.jit, static_argnames=("scattering_window"))
-def fast_scattering_phi_of_t_jax(
+def fast_scattering_phi_of_t_array(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
-    scattering_window: Tuple[float, float],
+    scattering_lower_window: float,
+    scattering_upper_window: float,
 ) -> jnpt.ArrayLike:
     """Generates $\\phi(t)$ for a fast scattering model,
     with windowing applied on the frequency evolution.
@@ -316,65 +290,69 @@ def fast_scattering_phi_of_t_jax(
             [5] is c_2, the second frequency coefficient, associated
             to the higher frequency f_2
             [6] is phi, the phase offset of the integrated frequency evolution.
-        scattering_window : Tuple[float, float]
-            The start and end times of the windowing function.
+        scattering_lower_window : float
+            The start time of the windowing function.
             All times outside this window but in the data segment will be set
             to 0.
+        scattering_upper_window : float
+            The end time of the windowing function
 
     Returns
     =======
         jnpt.ArrayLike
             The phi(t) associated with the fast scattering
     """
-    f_of_t = fast_scattering_f_of_t_jax(t, sampling_parameters[:-1])
+    f_of_t = fast_scattering_f_of_t_array(t, sampling_parameters[:-1])
 
     # Here begins something contrived
     # The goal is to
-    below_window_and_zero_crossing = (jnp.isclose(f_of_t, 0, atol=0.5)) & (
-        t <= scattering_window[0]
+    below_window_and_zero_crossing = (xp.isclose(f_of_t, 0, atol=0.5)) & (
+        t <= scattering_lower_window
     )
-    indices_below_window_and_zero_crossing = jnp.where(
+    indices_below_window_and_zero_crossing = xp.where(
         below_window_and_zero_crossing,
-        jnp.indices(t.shape).flatten(),
-        jnp.zeros_like(t),
+        xp.indices(t.shape).flatten(),
+        xp.zeros_like(t),
     )
-    above_window_and_zero_crossing = (jnp.isclose(f_of_t, 0, atol=0.5)) & (
-        t >= scattering_window[1]
+    above_window_and_zero_crossing = (xp.isclose(f_of_t, 0, atol=0.5)) & (
+        t >= scattering_upper_window
     )
-    indices_above_window_and_zero_crossing = jnp.where(
+    indices_above_window_and_zero_crossing = xp.where(
         above_window_and_zero_crossing,
-        jnp.indices(t.shape).flatten(),
-        jnp.ones_like(t) * (t.shape[0] + 1),
+        xp.indices(t.shape).flatten(),
+        xp.ones_like(t) * (t.shape[0] + 1),
     )
 
-    index_last_crossing_before_window = jnp.argmax(
+    index_last_crossing_before_window = xp.argmax(
         indices_below_window_and_zero_crossing
     )
-    index_first_crossing_after_window = jnp.argmin(
+    index_first_crossing_after_window = xp.argmin(
         indices_above_window_and_zero_crossing
     )
 
-    windowed_fast_scattering_f_of_t = jnp.where(
-        (jnp.indices(t.shape) <= index_last_crossing_before_window)
-        | (jnp.indices(t.shape) >= index_first_crossing_after_window),
-        jnp.zeros_like(t),
+    windowed_fast_scattering_f_of_t = xp.where(
+        (xp.indices(t.shape) <= index_last_crossing_before_window)
+        | (xp.indices(t.shape) >= index_first_crossing_after_window),
+        xp.zeros_like(t),
         f_of_t,
     )
 
     phi_of_t = (
-        cumulative_trapezoid(windowed_fast_scattering_f_of_t.flatten(), t, initial=0)
+        scs.cumulative_trapezoid(
+            windowed_fast_scattering_f_of_t.flatten(), t, initial=0
+        )
         * 2
-        * jnp.pi
+        * xp.pi
         + sampling_parameters[6]
     )
     return phi_of_t
 
 
-@partial(jax.jit, static_argnames=("scattering_window"))
-def fast_scattering_g_of_t_jax(
+def fast_scattering_g_of_t_array(
     t: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
-    scattering_window: Tuple[float, float],
+    scattering_lower_window: float,
+    scattering_upper_window: float,
 ) -> jnpt.ArrayLike:
     """
 
@@ -406,48 +384,48 @@ def fast_scattering_g_of_t_jax(
             to the higher frequency f_2
             [6] is phi, the phase offset of the integrated frequency evolution.
             [7] is A, the amplitude of the scattering signal
-        scattering_window : Tuple[float, float]
-            The start and end times of the windowing function.
+        scattering_lower_window : float
+            The start time of the windowing function.
             All times outside this window but in the data segment will be set
             to 0.
+        scattering_upper_window : float
+            The end time of the windowing function
 
     Returns
     =======
     jnpt.ArrayLike
         The glitch signal for this fast scattering glitch
     """
-    phi_of_t = fast_scattering_phi_of_t_jax(
-        t, sampling_parameters[:-1], scattering_window=scattering_window
+    phi_of_t = fast_scattering_phi_of_t_array(
+        t,
+        sampling_parameters[:-1],
+        scattering_lower_window=scattering_lower_window,
+        scattering_upper_window=scattering_upper_window,
     )
-    g_of_t = sampling_parameters[7] * jnp.sin(phi_of_t)
+    g_of_t = sampling_parameters[7] * xp.sin(phi_of_t)
 
     return g_of_t
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "sampling_frequency",
-        "duration",
-        "start_time",
-        "scattering_window",
-    ),
-)
-def fast_scattering_g_of_f_jax(
+def fast_scattering_g_of_f_array(
     f: jnpt.ArrayLike,
     sampling_parameters: jnpt.ArrayLike,
-    scattering_window: Tuple[float, float],
+    scattering_lower_window: float,
+    scattering_upper_window: float,
     sampling_frequency: int,
     duration: float,
     start_time: float,
 ) -> jnpt.ArrayLike:
-    t = jnp.linspace(start_time, duration + start_time, duration * sampling_frequency)
-    time_domain_parametric_glitch = fast_scattering_g_of_t_jax(
-        t, sampling_parameters=sampling_parameters, scattering_window=scattering_window
+    t = xp.linspace(start_time, duration + start_time, duration * sampling_frequency)
+    time_domain_parametric_glitch = fast_scattering_g_of_t_array(
+        t,
+        sampling_parameters=sampling_parameters,
+        scattering_lower_window=scattering_lower_window,
+        scattering_upper_window=scattering_upper_window,
     )
-    amplitude_tukey = tukey(duration * sampling_frequency, alpha=0.2)
+    amplitude_tukey = scs.tukey(duration * sampling_frequency, alpha=0.2)
     return (
-        jnp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
+        xp.fft.rfft(time_domain_parametric_glitch * amplitude_tukey)
         / sampling_frequency
     )
 
@@ -459,8 +437,7 @@ def fast_scattering_g_of_f_jax(
 ################################################################################
 
 
-@partial(jax.jit, static_argnames=("number_of_arches"))
-def slow_scattering_f_of_t_all_arches_jax(
+def slow_scattering_f_of_t_all_arches_array(
     t: jnpt.ArrayLike, sampling_parameters: jnpt.ArrayLike, number_of_arches: int = 10
 ) -> jnpt.ArrayLike:
     """Produces the frequency as a function
@@ -496,17 +473,16 @@ def slow_scattering_f_of_t_all_arches_jax(
             length of the timeseries.
     """
     f_harm_k = (
-        jnp.arange(number_of_arches) * sampling_parameters[3] + sampling_parameters[2]
+        xp.arange(number_of_arches) * sampling_parameters[3] + sampling_parameters[2]
     )
-    modulation_of_t = jnp.cos(
-        2 * jnp.pi * sampling_parameters[1] * (t - sampling_parameters[0])
+    modulation_of_t = xp.cos(
+        2 * xp.pi * sampling_parameters[1] * (t - sampling_parameters[0])
     )
-    f_of_t_all_arches = jnp.outer(f_harm_k, modulation_of_t)
+    f_of_t_all_arches = xp.outer(f_harm_k, modulation_of_t)
     return f_of_t_all_arches
 
 
-@partial(jax.jit)
-def fast_scattering_f_of_t_jax(
+def fast_scattering_f_of_t_array(
     t: jnpt.ArrayLike, sampling_parameters: jnpt.ArrayLike
 ) -> jnpt.ArrayLike:
     """Gives the frequency as a function of time for idealized
@@ -529,7 +505,7 @@ def fast_scattering_f_of_t_jax(
             the lower (microseism) frequency. This will also    ```
             be treated as the geocent_time for purposes of
             bilby compatibility
-            [1] is t_2, the central time associated with the second
+            [1] is second_scatterer_offset, the offset from the geocent time for the second
             frequency, which to establish convention will be
             the higher (anthropogenic) frequency
             [2] is f_1, the first frequency, which we'll assume
@@ -552,12 +528,17 @@ def fast_scattering_f_of_t_jax(
     first_frequency_term = (
         sampling_parameters[4]
         * sampling_parameters[2]
-        * jnp.cos(2 * jnp.pi * sampling_parameters[2] * (t - sampling_parameters[0]))
+        * xp.cos(2 * xp.pi * sampling_parameters[2] * (t - sampling_parameters[0]))
     )
     second_frequency_term = (
         sampling_parameters[5]
         * sampling_parameters[3]
-        * jnp.cos(2 * jnp.pi * sampling_parameters[3] * (t - sampling_parameters[1]))
+        * xp.cos(
+            2
+            * xp.pi
+            * sampling_parameters[3]
+            * (t - sampling_parameters[1] - sampling_parameters[0])
+        )
     )
     return first_frequency_term + second_frequency_term
 
@@ -570,7 +551,7 @@ def fast_scattering_f_of_t_jax(
 
 
 def slow_scattering_f_of_t_single_arch_with_keyword(
-    t: np.array,
+    t: xp.array,
     central_time: float,
     modulation_frequency: float,
     harmonic_frequency: float,
@@ -579,7 +560,7 @@ def slow_scattering_f_of_t_single_arch_with_keyword(
 
     Parameters
     ==========
-    t : np.array
+    t : xp.array
         The time array over which to evaluate the frequency
     central_time : float
         The central time (time of peak frequency) for the arch
@@ -590,11 +571,11 @@ def slow_scattering_f_of_t_single_arch_with_keyword(
 
     Returns
     =======
-    np.array
+    xp.array
         The frequency of the arch at sampled times
     """
-    return harmonic_frequency * np.cos(
-        2 * np.pi * modulation_frequency * (t - central_time)
+    return harmonic_frequency * xp.cos(
+        2 * xp.pi * modulation_frequency * (t - central_time)
     )
 
 
@@ -637,13 +618,13 @@ def slow_scattering_f_of_t_all_arches_with_keyword(
         base_harmonic_frequency,
         harmonic_frequency_delta,
     ]
-    return slow_scattering_f_of_t_all_arches_jax(
+    return slow_scattering_f_of_t_all_arches_array(
         t, input_parameters, number_of_arches=number_of_arches
     )
 
 
 def slow_scattering_shifting_modulation_f_of_t(
-    t: np.array,
+    t: xp.array,
     central_time: float,
     modulation_frequency: float,
     modulation_frequency_shift: float,
@@ -655,7 +636,7 @@ def slow_scattering_shifting_modulation_f_of_t(
 
     Parameters
     ==========
-        t : np.array
+        t : xp.array
             The time array over which to evaluate the frequency
         central_time : float
             The central time (time of peak frequency) for the arch
@@ -672,7 +653,7 @@ def slow_scattering_shifting_modulation_f_of_t(
 
     Returns
     =======
-        np.array
+        xp.array
             The sum of the two frequency arches, with a smooth handoff
     """
     initial_function = slow_scattering_f_of_t_single_arch_with_keyword(
@@ -692,3 +673,86 @@ def slow_scattering_shifting_modulation_f_of_t(
         t=t, taper_central_time=taper_central_time, taper_time_scale=taper_time_scale
     )
     return initial_function + final_function
+
+
+################################################################################
+################################################################################
+########################    JITting when appropriate    ########################
+################################################################################
+################################################################################
+
+
+def set_jit_functions_with_jax_backend():
+    if "jax" not in xp.__name__:
+        print("Cannot jit functions when jax is not the backend")
+        return
+    import jax
+    from importlib import import_module
+
+    this_module = import_module("bilby_glitch.models.parametric_glitch_models")
+    fast_scattering_f_of_t_array = jax.jit(this_module.fast_scattering_f_of_t_array)
+    slow_scattering_f_of_t_all_arches_array = jax.jit(
+        this_module.slow_scattering_f_of_t_all_arches_array,
+        static_argnames=("number_of_arches",),
+    )
+    fast_scattering_g_of_f_array = jax.jit(
+        this_module.fast_scattering_g_of_f_array,
+        static_argnames=(
+            "sampling_frequency",
+            "duration",
+            "start_time",
+            "scattering_lower_window",
+            "scattering_upper_window",
+        ),
+    )
+    fast_scattering_g_of_t_array = jax.jit(
+        this_module.fast_scattering_g_of_t_array,
+        static_argnames=("scattering_lower_window", "scattering_upper_window"),
+    )
+    fast_scattering_phi_of_t_array = jax.jit(
+        this_module.fast_scattering_phi_of_t_array,
+        static_argnames=("scattering_lower_window", "scattering_upper_window"),
+    )
+    wavelet_g_of_f_array = jax.jit(
+        this_module.wavelet_g_of_f_array, static_argnames=("start_time")
+    )
+    slow_scattering_g_of_f_array = jax.jit(
+        this_module.slow_scattering_g_of_f_array,
+        static_argnames=(
+            "sampling_frequency",
+            "duration",
+            "start_time",
+            "number_of_arches",
+            "groups_left_of_center",
+            "groups_right_of_center",
+        ),
+    )
+    slow_scattering_g_of_t_array = jax.jit(
+        this_module.slow_scattering_g_of_t_array,
+        static_argnames=(
+            "number_of_arches",
+            "groups_left_of_center",
+            "groups_right_of_center",
+        ),
+    )
+    slow_scattering_phi_of_t_array = jax.jit(
+        this_module.slow_scattering_phi_of_t_array,
+        static_argnames=("groups_left_of_center", "groups_right_of_center"),
+    )
+    setattr(
+        this_module,
+        "slow_scattering_f_of_t_all_arches_array",
+        slow_scattering_f_of_t_all_arches_array,
+    )
+    setattr(
+        this_module, "slow_scattering_phi_of_t_array", slow_scattering_phi_of_t_array
+    )
+    setattr(this_module, "slow_scattering_g_of_t_array", slow_scattering_g_of_t_array)
+    setattr(this_module, "slow_scattering_g_of_f_array", slow_scattering_g_of_f_array)
+    setattr(this_module, "fast_scattering_f_of_t_array", fast_scattering_f_of_t_array)
+    setattr(
+        this_module, "fast_scattering_phi_of_t_array", fast_scattering_phi_of_t_array
+    )
+    setattr(this_module, "fast_scattering_g_of_t_array", fast_scattering_g_of_t_array)
+    setattr(this_module, "fast_scattering_g_of_f_array", fast_scattering_g_of_f_array)
+    setattr(this_module, "wavelet_g_of_f_array", wavelet_g_of_f_array)

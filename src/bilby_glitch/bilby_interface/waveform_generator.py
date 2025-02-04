@@ -7,7 +7,7 @@ from bilby.core.utils import logger, nfft
 from bilby.gw.waveform_generator import WaveformGenerator
 from bilby.gw.conversion import identity_map_conversion
 
-from .models.bilby_interface import bilbify_parametric_glitch
+from .bilby_interface import bilbify_parametric_glitch
 
 
 class GlitchWaveformGenerator(WaveformGenerator):

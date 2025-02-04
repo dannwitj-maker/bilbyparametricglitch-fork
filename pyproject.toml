@@ -43,3 +43,10 @@ version = {attr = "bilby_glitch._version.__version__"}
 [project.urls]
 "Homepage" = "https://git.ligo.org/rhiannon.udall/bilby_glitch"
 "Bug Tracker" = "https://git.ligo.org/rhiannon.udall/bilby_glitch/-/issues"
+
+[project.entry-points."bilby_glitch.xp"]
+bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"
+bilby_glitch_bilby_interface = "bilby_glitch.models.bilby_interface"
+
+[project.entry-points."bilby_glitch.scs"]
+bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"

@@ -1,7 +1,4 @@
 import numpy as np
-import jax.typing as jnpt
-import jax.numpy as jnp
-import jax
 import gwpy
 from scipy.signal import savgol_filter
 

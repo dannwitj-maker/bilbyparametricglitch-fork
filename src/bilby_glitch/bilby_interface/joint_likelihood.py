@@ -16,7 +16,7 @@ from bilby.gw.detector import (
     InterferometerList,
 )
 from bilby.gw.waveform_generator import WaveformGenerator
-from .models.bilby_interface import _blank_frequency_domain_source_model
+from .bilby_interface import _blank_frequency_domain_source_model
 from .waveform_generator import GlitchWaveformGenerator
 
 from typing import TYPE_CHECKING, Any, Dict, Optional
