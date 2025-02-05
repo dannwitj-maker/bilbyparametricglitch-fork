@@ -24,7 +24,7 @@ from bilby_pipe.data_analysis import (
 
 from .input import GlitchInput
 from .parser import glitch_create_parser
-from ..result import JointCBCGlitchResult
+from ..bilby_interface.result import JointCBCGlitchResult
 from ..bilby_interface.bilby_interface import _blank_frequency_domain_source_model
 
 

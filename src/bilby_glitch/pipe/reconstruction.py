@@ -8,8 +8,8 @@ from ptfp.bilby_pipe_interface import get_analysis_from_dag
 
 from .data_analysis import GlitchDataAnalysisInput, DataAnalysisInput
 from .parser import glitch_create_parser
-from ..result import JointCBCGlitchResult
-from ..joint_likelihood import (
+from ..bilby_interface.result import JointCBCGlitchResult
+from ..bilby_interface.joint_likelihood import (
     GravitationalWaveTransient,
     JointGlitchGravitationalWaveTransient,
 )
