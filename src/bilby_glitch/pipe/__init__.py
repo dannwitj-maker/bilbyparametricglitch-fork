@@ -6,7 +6,7 @@ from . import (
     job_creation,
     main,
     parser,
-    reconstruction
+    reconstruction,
 )
 
 from .create_injections import main as glitch_bilby_pipe_create_injection_file
