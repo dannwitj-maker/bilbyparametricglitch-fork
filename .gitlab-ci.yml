@@ -5,6 +5,8 @@ include:
 
 stages:
   - initial
+  - docs
+  - deploy
 
 precommit:
   stage: initial
@@ -14,3 +16,28 @@ precommit:
     - pip install pre-commit
     - pre-commit run --all-files --verbose --show-diff-on-failure
 
+docs:
+  image: python:3.11-bookworm
+  stage: docs
+  extends:
+    - .python:base
+  script:
+    - pip install .
+    - cd docs/
+    - python -m pip install -r requirements.txt
+    - mkdocs build
+  artifacts:
+    paths:
+      - docs/site/
+
+pages:
+  stage: deploy
+  script:
+    - mkdir public/
+    - mv docs/site/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  # only:
+  #   - documentation
