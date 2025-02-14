@@ -76,7 +76,7 @@ SINGLE_WAVELET_HELPER_PARAMETERS = ["start_time"]
 
 FAST_SCATTERING_SAMPLING_PARAMETERS = [
     "geocent_time",
-    "second_scatterer_offset",
+    "second_scatterer_phase",
     "frequency_1",
     "frequency_2",
     "motion_coefficient_1",

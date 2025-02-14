@@ -276,8 +276,8 @@ def fast_scattering_phi_of_t_array(
             the lower (microseism) frequency. This will also    ```
             be treated as the geocent_time for purposes of
             bilby compatibility
-            [1] is t_2, the central time associated with the second
-            frequency, which to establish convention will be
+            [1] is phi_scatterer_2, the phase associated with the second frequency
+            which to establish convention will be
             the higher (anthropogenic) frequency
             [2] is f_1, the first frequency, which we'll assume
             for sake of convention is the lower
@@ -369,8 +369,8 @@ def fast_scattering_g_of_t_array(
             the lower (microseism) frequency. This will also    ```
             be treated as the geocent_time for purposes of
             bilby compatibility
-            [1] is t_2, the central time associated with the second
-            frequency, which to establish convention will be
+            [1] is phi_scatterer_2, the phase associated with the second frequency
+            which to establish convention will be
             the higher (anthropogenic) frequency
             [2] is f_1, the first frequency, which we'll assume
             for sake of convention is the lower
@@ -505,8 +505,8 @@ def fast_scattering_f_of_t_array(
             the lower (microseism) frequency. This will also    ```
             be treated as the geocent_time for purposes of
             bilby compatibility
-            [1] is second_scatterer_offset, the offset from the geocent time for the second
-            frequency, which to establish convention will be
+            [1] is phi_scatterer_2, the phase associated with the second frequency
+            which to establish convention will be
             the higher (anthropogenic) frequency
             [2] is f_1, the first frequency, which we'll assume
             for sake of convention is the lower
@@ -533,12 +533,7 @@ def fast_scattering_f_of_t_array(
     second_frequency_term = (
         sampling_parameters[5]
         * sampling_parameters[3]
-        * xp.cos(
-            2
-            * xp.pi
-            * sampling_parameters[3]
-            * (t - sampling_parameters[1] - sampling_parameters[0])
-        )
+        * xp.cos(2 * xp.pi * sampling_parameters[3] * (t) + sampling_parameters[1])
     )
     return first_frequency_term + second_frequency_term
 
