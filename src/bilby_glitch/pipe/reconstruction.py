@@ -21,7 +21,6 @@ def get_all_analysis_components(
     base_directory: str,
     case: int = 0,
     analysis_ifos: str = "H1L1",
-    frequency_cut_ifo: str = "L1",
     frequencies: Union[None, List[Tuple]] = None,
     joint=True,
 ) -> Tuple[

@@ -252,9 +252,6 @@ def bilbify_parametric_glitch(
     # Get the time delay for the glitch, so that it can be placed at the *detector* time in a way
     # Which appropriately compensates for bilby convention
     # By *our* convention glitches get a "sky location" of ra=dec=0
-    detector_time_delay = get_empty_interferometer(
-        glitch_interferometer
-    ).time_delay_from_geocenter(ra=0, dec=0, time=start_time)
 
     signature_parameters = []
     signature_parameters.append(
@@ -312,11 +309,7 @@ def bilbify_parametric_glitch(
         # t_0 being whatever time parameter the model uses, which this automatically assumes to be in
         # detector frame (applying the detector time delay accordingly)
         g_of_f *= xp.exp(
-            -2
-            * xp.pi
-            * 1j
-            * (segment_end_time - kwargs["geocent_time"] - detector_time_delay)
-            * f
+            -2 * xp.pi * 1j * (segment_end_time - kwargs["geocent_time"]) * f
         )
 
         return {

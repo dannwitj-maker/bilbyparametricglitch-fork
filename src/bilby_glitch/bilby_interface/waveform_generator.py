@@ -94,6 +94,15 @@ class GlitchWaveformGenerator(WaveformGenerator):
             waveform_arguments=waveform_arguments,
         )
         self.waveform_arguments["time_array"] = self.time_array
+        self.time_domain_parametric_glitch_function = (
+            parametric_time_domain_source_model
+        )
+        self.frequency_domain_parametric_glitch_function = (
+            parametric_frequency_domain_source_model
+        )
+        self.glitch_index_name = glitch_index_name
+        self.glitch_interferometer = glitch_interferometer
+        self.direct_injection = direct_injection
 
 
 class NegativeWaveformGenerator(WaveformGenerator):
