@@ -6,10 +6,10 @@ from bilby_pipe.utils import DataDump
 from bilby_pipe.parser import create_parser as standard_create_parser
 from ptfp.bilby_pipe_interface import get_analysis_from_dag
 
-from .pipe_data_analysis import GlitchDataAnalysisInput, DataAnalysisInput
-from .pipe_parser import glitch_create_parser
-from .result import JointCBCGlitchResult
-from .joint_likelihood import (
+from .data_analysis import GlitchDataAnalysisInput, DataAnalysisInput
+from .parser import glitch_create_parser
+from ..bilby_interface.result import JointCBCGlitchResult
+from ..bilby_interface.joint_likelihood import (
     GravitationalWaveTransient,
     JointGlitchGravitationalWaveTransient,
 )
@@ -21,7 +21,6 @@ def get_all_analysis_components(
     base_directory: str,
     case: int = 0,
     analysis_ifos: str = "H1L1",
-    frequency_cut_ifo: str = "L1",
     frequencies: Union[None, List[Tuple]] = None,
     joint=True,
 ) -> Tuple[

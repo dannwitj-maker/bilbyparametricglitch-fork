@@ -2,25 +2,15 @@ import logging
 import numpy as np
 import copy
 from scipy.signal.windows import tukey
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from bilby.core.utils import nfft
-from .glitch_foft_models import (
+from bilby.gw.detector import get_empty_interferometer
+from .parametric_glitch_models import (
     slow_scattering_shifting_modulation_f_of_t,
-    auxiliary_f_of_t,
 )
-
-from typing import TYPE_CHECKING
+from .nonparametric_glitch_models import auxiliary_f_of_t
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    import gwpy
-
-################################################################################
-################################################################################
-####################   Utility Functions and Definitions    ####################
-################################################################################
-################################################################################
 
 
 SLOW_SCATTERING_ORIGINAL_PARAMETERS = [
@@ -80,8 +70,8 @@ SLOW_SCATTERING_ORIGINAL_PARAMETERS = [
 SLOW_SCATTERING_PARAMETERS = [
     "geocent_time",
     "harmonic_frequency_delta",
-    "base_harmonic_frequency",
     "modulation_frequency",
+    "base_harmonic_frequency",
     "phi_0",
     "phi_1",
     "phi_2",
@@ -119,45 +109,6 @@ FAST_SCATTERING_PARAMETERS = [
     "anthropogenic_coefficient",
     "geocent_time",
 ]
-
-
-def populate_unused_parameters(
-    original_dict: dict,
-    full_parameter_list: list = SLOW_SCATTERING_PARAMETERS,
-    add_sky_params=False,
-) -> dict:
-    """Fill out a dictionary (either injection parameters or a priordict)
-    with the parameters needed for the model, but unused.
-    These are all set as 0.
-
-    Parameters
-    ==========
-    original_dict : dict
-        The dictionary to modify
-    full_parameter_list : list, optional
-        The list of parameters to fill out, defaults to those in the slow scattering SHO model
-    add_sky_params : bool
-        Whether to also add unused sky params needed by Bilby - should be turned off if a cbc model is also present
-
-    Returns
-    =======
-    dict
-        The updated dictionary with unused but necessary parameters set as 0
-    """
-    temp_dict = copy.deepcopy(original_dict)
-    for key in full_parameter_list:
-        if key not in original_dict:
-            temp_dict[key] = 0
-    if add_sky_params:
-        temp_dict["ra"] = 0
-        temp_dict["dec"] = 0
-        temp_dict["psi"] = 0
-    return temp_dict
-
-
-def _blank_frequency_domain_source_model(f, geocent_time, **kwargs):
-    """A placeholder for when no CBC is passed to a joint analysis"""
-    return {"plus": np.zeros(f.shape), "cross": np.zeros(f.shape)}
 
 
 ################################################################################
@@ -629,7 +580,7 @@ def slow_scattering_shifting_frequency(
         taper_time_scale=taper_time_scale,
     )
 
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     # get hoft of 0th arch
@@ -837,7 +788,7 @@ def aux_informed(
     goft = np.zeros(t.shape)
     f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
     # Add up each arch
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):
@@ -968,7 +919,7 @@ def aux_informed_amplitude_splines(
     # Add up each arch
     f_of_t = auxiliary_f_of_t(aux_time_series_resampled, scale)
     # Add up each arch
-    base_phi_of_t = 2 * np.pi * cumtrapz(f_of_t, t)
+    base_phi_of_t = 2 * np.pi * cumulative_trapezoid(f_of_t, t)
     base_phi_of_t = np.concatenate([np.zeros(1), base_phi_of_t])
 
     for harmonic_idx in range(1, 1 + n_harmonics):

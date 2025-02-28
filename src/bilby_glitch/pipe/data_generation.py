@@ -23,9 +23,9 @@ from bilby_pipe.utils import (
 )
 from bilby_pipe.data_generation import DataGenerationInput
 
-from .pipe_input import GlitchInput
-from .pipe_parser import glitch_create_parser
-from .glitch_models import _blank_frequency_domain_source_model
+from .input import GlitchInput
+from .parser import glitch_create_parser
+from ..bilby_interface.bilby_interface import _blank_frequency_domain_source_model
 
 
 class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
@@ -63,6 +63,12 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                 args.joint_waveform_generator_model_args
             )
             self.joint_waveform_generator_classes = args.joint_waveform_generators
+            self.joint_waveform_generator_parametric_models = (
+                args.joint_waveform_generator_parametric_models
+            )
+            self.joint_waveform_generator_parametric_sampling_parameters = (
+                args.joint_waveform_generator_parametric_sampling_parameters
+            )
 
         if self.injection_is_joint:
             self.joint_injection_files = args.joint_injection_files
@@ -114,6 +120,19 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                 self.joint_injection_waveform_generator_model_kwargs = (
                     args.joint_injection_waveform_generator_model_args
                 )
+
+            if (
+                args.joint_injection_waveform_generator_parametric_models is None
+                and self.likelihood_is_joint
+            ):
+                self.joint_injection_waveform_generator_parametric_models = (
+                    args.joint_waveform_generator_parametric_models
+                )
+            else:
+                self.joint_injection_waveform_generator_parametric_models = (
+                    args.joint_injection_waveform_generator_parametric_models
+                )
+            self._cleanup_joint_injection_models()
 
         if args.injection_frequency_domain_source_model is None:
             self.injection_frequency_domain_source_model = (
@@ -221,6 +240,14 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
 
                 logger.info(
                     f"Glitch injection parameters: {glitch_injection_parameters}"
+                )
+
+                logger.info(
+                    np.max(
+                        waveform_generator.frequency_domain_strain(
+                            glitch_injection_parameters
+                        )
+                    )
                 )
 
                 self.interferometers.inject_signal(

@@ -22,10 +22,10 @@ from bilby_pipe.data_analysis import (
     DataAnalysisInput,
 )
 
-from .pipe_input import GlitchInput
-from .pipe_parser import glitch_create_parser
-from .result import JointCBCGlitchResult
-from .glitch_models import _blank_frequency_domain_source_model
+from .input import GlitchInput
+from .parser import glitch_create_parser
+from ..bilby_interface.result import JointCBCGlitchResult
+from ..bilby_interface.bilby_interface import _blank_frequency_domain_source_model
 
 
 class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
@@ -59,6 +59,9 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
             self.joint_prior_files = args.joint_prior_files
             self.joint_waveform_generator_source_models = (
                 args.joint_waveform_generator_source_models
+            )
+            self.joint_waveform_generator_parametric_models = (
+                args.joint_waveform_generator_parametric_models
             )
             self.joint_waveform_generator_kwargs = args.joint_waveform_generator_args
             self.joint_waveform_generator_model_kwargs = (

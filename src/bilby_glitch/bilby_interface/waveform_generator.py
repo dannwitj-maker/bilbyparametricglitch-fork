@@ -3,9 +3,11 @@ import pandas as pd
 
 from gwpy.timeseries import TimeSeries
 
-from bilby.core.utils import logger
+from bilby.core.utils import logger, nfft
 from bilby.gw.waveform_generator import WaveformGenerator
 from bilby.gw.conversion import identity_map_conversion
+
+from .bilby_interface import bilbify_parametric_glitch
 
 
 class GlitchWaveformGenerator(WaveformGenerator):
@@ -18,6 +20,9 @@ class GlitchWaveformGenerator(WaveformGenerator):
         direct_injection=False,
         start_time=0,
         frequency_domain_source_model=None,
+        parametric_time_domain_source_model=None,
+        parametric_frequency_domain_source_model=None,
+        parametric_source_model_converter=bilbify_parametric_glitch,
         parameters=None,
         parameter_conversion=None,
         waveform_arguments={},
@@ -56,6 +61,29 @@ class GlitchWaveformGenerator(WaveformGenerator):
             # Default to bilby default of 2
             waveform_arguments["post_trigger_duration"] = 2
 
+        if (
+            frequency_domain_source_model is None
+            and parametric_frequency_domain_source_model is None
+            and parametric_time_domain_source_model
+        ):
+            raise ValueError(
+                "Must set source model directly or provide a model to convert"
+            )
+        elif (
+            parametric_frequency_domain_source_model is not None
+            or parametric_time_domain_source_model is not None
+        ):
+            frequency_domain_source_model = parametric_source_model_converter(
+                duration=duration,
+                sampling_frequency=sampling_frequency,
+                start_time=start_time,
+                glitch_name=waveform_arguments["glitch_mode_name"],
+                glitch_interferometer=glitch_interferometer,
+                time_domain_parametric_glitch_function=parametric_time_domain_source_model,
+                frequency_domain_parametric_glitch_function=parametric_frequency_domain_source_model,
+                fixed_glitch_waveform_arguments=waveform_arguments,
+            )
+
         super(GlitchWaveformGenerator, self).__init__(
             duration=duration,
             sampling_frequency=sampling_frequency,
@@ -66,6 +94,15 @@ class GlitchWaveformGenerator(WaveformGenerator):
             waveform_arguments=waveform_arguments,
         )
         self.waveform_arguments["time_array"] = self.time_array
+        self.time_domain_parametric_glitch_function = (
+            parametric_time_domain_source_model
+        )
+        self.frequency_domain_parametric_glitch_function = (
+            parametric_frequency_domain_source_model
+        )
+        self.glitch_index_name = glitch_index_name
+        self.glitch_interferometer = glitch_interferometer
+        self.direct_injection = direct_injection
 
 
 class NegativeWaveformGenerator(WaveformGenerator):

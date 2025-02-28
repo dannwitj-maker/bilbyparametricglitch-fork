@@ -13,11 +13,17 @@ from bilby_pipe.utils import (
     import_module,
 )
 
-from .glitch_models import (
+from ..bilby_interface.bilby_interface import (
     populate_unused_parameters,
+    single_wavelet_frequency_domain,
+    slow_scattering_frequency_domain,
+    fast_scattering_frequency_domain,
+)
+
+from ..models.legacy_bilby_interface import (
     slow_scattering,
-    SLOW_SCATTERING_PARAMETERS,
     slow_scattering_shifting_frequency,
+    SLOW_SCATTERING_PARAMETERS,
     SLOW_SCATTERING_SHIFTING_PARAMETERS,
 )
 
@@ -338,6 +344,9 @@ class GlitchInput(Input):
                     frequency_domain_source_model=self.joint_waveform_generator_source_models[
                         index_name
                     ],
+                    parametric_frequency_domain_source_model=self.joint_waveform_generator_parametric_models[
+                        index_name
+                    ],
                     parameter_conversion=bilby.gw.conversion.identity_map_conversion,
                     waveform_arguments=self.joint_waveform_generator_model_kwargs[
                         index_name
@@ -389,18 +398,83 @@ class GlitchInput(Input):
     def joint_waveform_generator_source_models(self):
         return self._joint_waveform_generator_source_models
 
+    @property
+    def joint_waveform_generator_parametric_models(self):
+        return self._joint_waveform_generator_parametric_models
+
+    @joint_waveform_generator_parametric_models.setter
+    def joint_waveform_generator_parametric_models(self, parametric_models: str | dict):
+        if not hasattr(self, "_joint_waveform_generator_parametric_models"):
+            self._joint_waveform_generator_parametric_models = dict()
+        if isinstance(parametric_models, str):
+            parametric_models = convert_string_to_dict(parametric_models)
+        if parametric_models is None:
+            parametric_models = {}
+        for index_name, model_name in parametric_models.items():
+            if model_name == "slow_scattering":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = slow_scattering_frequency_domain
+            elif model_name == "single_wavelet":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = single_wavelet_frequency_domain
+            elif model_name == "fast_scattering":
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = fast_scattering_frequency_domain
+            elif "." in model_name:
+                self._joint_waveform_generator_parametric_models[
+                    index_name
+                ] = get_function_from_string_path(model_name)
+        self._cleanup_joint_models()
+
     @joint_waveform_generator_source_models.setter
     def joint_waveform_generator_source_models(self, source_models: str | dict):
-        self._joint_waveform_generator_source_models = dict()
+        if not hasattr(self, "_joint_waveform_generator_source_models"):
+            self._joint_waveform_generator_source_models = dict()
         if isinstance(source_models, str):
             source_models = convert_string_to_dict(source_models)
+        if source_models is None:
+            source_models = {}
         for index_name, model_name in source_models.items():
             if "." in model_name:
                 self._joint_waveform_generator_source_models[
                     index_name
                 ] = get_function_from_string_path(model_name)
             else:
-                raise BilbyPipeError(f"No source model {model_name} found.")
+                self._joint_waveform_generator_source_models[index_name] = None
+        self._cleanup_joint_models()
+
+    @staticmethod
+    def _set_none_where_keys_are_missing(keys, update_dict):
+        missing_keys = set(keys) - set(update_dict.keys())
+        for key in missing_keys:
+            update_dict[key] = None
+        return update_dict
+
+    def _cleanup_joint_models(self):
+        if not hasattr(self, "_joint_waveform_generator_source_models"):
+            self._joint_waveform_generator_source_models = {}
+        if not hasattr(self, "_joint_waveform_generator_parametric_models"):
+            self._joint_waveform_generator_parametric_models = {}
+        self._joint_waveform_generator_parametric_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_waveform_generator_source_models.keys(),
+                self._joint_waveform_generator_parametric_models,
+            )
+        )
+        self._joint_waveform_generator_source_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_waveform_generator_parametric_models.keys(),
+                self._joint_waveform_generator_source_models,
+            )
+        )
+        logger.info(
+            "Post-cleanup:\n"
+            f"{self._joint_waveform_generator_source_models}"
+            f"{self._joint_waveform_generator_parametric_models}"
+        )
 
     @property
     def joint_waveform_generator_kwargs(self):
@@ -451,6 +525,9 @@ class GlitchInput(Input):
                     frequency_domain_source_model=self.joint_injection_waveform_generator_source_models[
                         index_name
                     ],
+                    parametric_frequency_domain_source_model=self.joint_injection_waveform_generator_parametric_models[
+                        index_name
+                    ],
                     parameter_conversion=bilby.gw.conversion.identity_map_conversion,
                     waveform_arguments=self.joint_injection_waveform_generator_model_kwargs[
                         index_name
@@ -467,6 +544,13 @@ class GlitchInput(Input):
                 )
                 logger.info(
                     f"Parameter conversion function is: {self.parameter_conversion}"
+                )
+                logger.info(
+                    "Parametric frequency domain source model is: "
+                    f"{self.joint_injection_waveform_generator_parametric_models}"
+                )
+                logger.info(
+                    f"Frequency domain source model is: {self.joint_injection_waveform_generator_source_models}"
                 )
 
                 self._joint_injection_waveform_generators[
@@ -505,20 +589,77 @@ class GlitchInput(Input):
     def joint_injection_waveform_generator_source_models(self):
         return self._joint_injection_waveform_generator_source_models
 
+    @property
+    def joint_injection_waveform_generator_parametric_models(self):
+        return self._joint_injection_waveform_generator_parametric_models
+
+    @joint_injection_waveform_generator_parametric_models.setter
+    def joint_injection_waveform_generator_parametric_models(
+        self, parametric_models: str | dict
+    ):
+        if not hasattr(self, "_joint_injection_waveform_generator_parametric_models"):
+            self._joint_injection_waveform_generator_parametric_models = dict()
+        if isinstance(parametric_models, str):
+            parametric_models = convert_string_to_dict(parametric_models)
+        if parametric_models is None:
+            parametric_models = {}
+        for index_name, model_name in parametric_models.items():
+            if model_name == "slow_scattering":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = slow_scattering_frequency_domain
+            elif model_name == "single_wavelet":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = single_wavelet_frequency_domain
+            elif model_name == "fast_scattering":
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = fast_scattering_frequency_domain
+            elif "." in model_name:
+                self._joint_injection_waveform_generator_parametric_models[
+                    index_name
+                ] = get_function_from_string_path(model_name)
+        self._cleanup_joint_injection_models()
+
     @joint_injection_waveform_generator_source_models.setter
     def joint_injection_waveform_generator_source_models(
         self, source_models: str | dict
     ):
-        self._joint_injection_waveform_generator_source_models = dict()
+        if not hasattr(self, "_joint_injection_waveform_generator_source_models"):
+            self._joint_injection_waveform_generator_source_models = dict()
         if isinstance(source_models, str):
             source_models = convert_string_to_dict(source_models)
+        if source_models is None:
+            source_models = {}
         for index_name, model_name in source_models.items():
             if "." in model_name:
                 self._joint_injection_waveform_generator_source_models[
                     index_name
                 ] = get_function_from_string_path(model_name)
             else:
-                raise BilbyPipeError(f"No source model {model_name} found.")
+                self._joint_injection_waveform_generator_source_models[
+                    index_name
+                ] = None
+        self._cleanup_joint_injection_models()
+
+    def _cleanup_joint_injection_models(self):
+        if not hasattr(self, "_joint_injection_waveform_generator_source_models"):
+            self._joint_injection_waveform_generator_source_models = {}
+        if not hasattr(self, "_joint_injection_waveform_generator_parametric_models"):
+            self._joint_injection_waveform_generator_parametric_models = {}
+        self._joint_injection_waveform_generator_parametric_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_source_models.keys(),
+                self._joint_injection_waveform_generator_parametric_models,
+            )
+        )
+        self._joint_injection_waveform_generator_source_models = (
+            self._set_none_where_keys_are_missing(
+                self._joint_injection_waveform_generator_parametric_models.keys(),
+                self._joint_injection_waveform_generator_source_models,
+            )
+        )
 
     @property
     def joint_injection_waveform_generator_kwargs(self):

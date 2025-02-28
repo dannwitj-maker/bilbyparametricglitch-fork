@@ -26,14 +26,16 @@ classifiers = [
 dependencies = [
     "bilby",
     "bilby_pipe",
+    # "plotting_tools_for_pe",
+    "makefun"
 ]
 dynamic = ["version"]
 
 [project.scripts]
-    glitch_bilby_pipe = "bilby_glitch:glitch_bilby_pipe"
-    glitch_bilby_pipe_analysis = "bilby_glitch:glitch_bilby_pipe_analysis"
-    glitch_bilby_pipe_generation = "bilby_glitch:glitch_bilby_pipe_generation"
-    glitch_bilby_pipe_create_injection_file = "bilby_glitch:glitch_bilby_pipe_create_injection_file"
+    glitch_bilby_pipe = "bilby_glitch.pipe:glitch_bilby_pipe"
+    glitch_bilby_pipe_analysis = "bilby_glitch.pipe:glitch_bilby_pipe_analysis"
+    glitch_bilby_pipe_generation = "bilby_glitch.pipe:glitch_bilby_pipe_generation"
+    glitch_bilby_pipe_create_injection_file = "bilby_glitch.pipe:glitch_bilby_pipe_create_injection_file"
 
 [tool.setuptools.dynamic]
 version = {attr = "bilby_glitch._version.__version__"}
@@ -41,3 +43,10 @@ version = {attr = "bilby_glitch._version.__version__"}
 [project.urls]
 "Homepage" = "https://git.ligo.org/rhiannon.udall/bilby_glitch"
 "Bug Tracker" = "https://git.ligo.org/rhiannon.udall/bilby_glitch/-/issues"
+
+[project.entry-points."bilby_glitch.xp"]
+bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"
+bilby_glitch_bilby_interface = "bilby_glitch.models.bilby_interface"
+
+[project.entry-points."bilby_glitch.scs"]
+bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"

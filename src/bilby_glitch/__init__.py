@@ -1,21 +1,6 @@
-from . import (
-    glitch_foft_models,
-    glitch_models,
-    joint_likelihood,
-    pipe_create_injections,
-    pipe_data_analysis,
-    pipe_data_generation,
-    pipe_input,
-    pipe_job_creation,
-    pipe_main,
-    pipe_parser,
-    plotting,
-    result,
-    series_transforms,
-    waveform_generator,
-)
+from . import bilby_interface, models, pipe, backend_utilities
 
-from .pipe_create_injections import main as glitch_bilby_pipe_create_injection_file
-from .pipe_data_analysis import main as glitch_bilby_pipe_analysis
-from .pipe_data_generation import main as glitch_bilby_pipe_generation
-from .pipe_main import main as glitch_bilby_pipe
+from .bilby_interface.joint_likelihood import JointGlitchGravitationalWaveTransient
+from .bilby_interface.waveform_generator import GlitchWaveformGenerator
+from .bilby_interface.result import JointCBCGlitchResult
+from .bilby_interface.bilby_interface import _blank_frequency_domain_source_model

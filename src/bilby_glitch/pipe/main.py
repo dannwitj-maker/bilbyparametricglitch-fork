@@ -18,10 +18,10 @@ from bilby_pipe.utils import (
 )
 from bilby_pipe.main import MainInput
 
-from .pipe_parser import glitch_create_parser
-from .pipe_create_injections import glitch_create_injection_file
-from .pipe_job_creation import generate_dag
-from .pipe_input import GlitchInput
+from .parser import glitch_create_parser
+from .create_injections import glitch_create_injection_file
+from .job_creation import generate_dag
+from .input import GlitchInput
 
 
 class GlitchMainInput(GlitchInput, MainInput):

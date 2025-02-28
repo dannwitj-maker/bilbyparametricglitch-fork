@@ -65,6 +65,14 @@ def glitch_create_parser(top_level=True):
         "indexed by glitch index_name",
     )
     injection_parser.add(
+        "--joint-injection-waveform-generator-parametric-models",
+        default=None,
+        type=nonestr,
+        help="If a joint likelihood is being used"
+        "these are the parametric models to convert for joint use"
+        "indexed by glitch index_name",
+    )
+    injection_parser.add(
         "--joint-injection-waveform-generator-args",
         default=None,
         type=nonestr,
@@ -147,6 +155,22 @@ def glitch_create_parser(top_level=True):
         type=nonestr,
         help="If a joint likelihood is being used"
         "these are the source models for the joint (glitch) objects"
+        "indexed by glitch index_name",
+    )
+    waveform_parser.add(
+        "--joint-waveform-generator-parametric-models",
+        default=None,
+        type=nonestr,
+        help="If a joint likelihood is being used"
+        "these are the parametric models to convert for joint use"
+        "indexed by glitch index_name",
+    )
+    waveform_parser.add(
+        "--joint-waveform-generator-parametric-sampling-parameters",
+        default=None,
+        type=nonestr,
+        help="If a joint likelihood is being used"
+        "these are the parameter names for the parametric model to use"
         "indexed by glitch index_name",
     )
     waveform_parser.add(

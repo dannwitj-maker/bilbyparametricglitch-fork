@@ -1,8 +1,11 @@
 import bilby
 import copy
 import numpy as np
+from pandas import DataFrame
 
-from .glitch_foft_models import slow_scattering_f_of_t
+from ..models.parametric_glitch_models import (
+    slow_scattering_f_of_t_single_arch_with_keyword,
+)
 
 from typing import Optional, List
 
@@ -35,7 +38,7 @@ def posterior_of_arch_tracks(
         central_time = geocent_time + interferometer.time_delay_from_geocenter(
             0, 0, geocent_time
         )
-        sample_foft = slow_scattering_f_of_t(
+        sample_foft = slow_scattering_f_of_t_single_arch_with_keyword(
             interferometer.time_array,
             central_time,
             modulation_frequency,
@@ -45,3 +48,20 @@ def posterior_of_arch_tracks(
     foft_posterior = np.array(foft_posterior)
 
     return foft_posterior
+
+
+def clean_glitch_posterior(posterior: DataFrame, glitch_name: str) -> DataFrame:
+    glitch_posterior = copy.deepcopy(posterior)
+    glitch_key = f"glitch_{glitch_name}"
+    for k in ["phi_1", "phi_2"]:
+        # annoying special case
+        if k in glitch_posterior.keys():
+            glitch_posterior.pop(k)
+
+    relevant_keys = [k for k in glitch_posterior if glitch_key in k]
+    cleanup_map = {k: k.replace(glitch_key, "") for k in relevant_keys}
+    glitch_posterior = glitch_posterior[relevant_keys]
+    glitch_posterior = glitch_posterior.rename(columns=cleanup_map)
+    for k in ["ra", "dec", "psi"]:
+        glitch_posterior[k] = np.zeros(glitch_posterior.shape[0])
+    return glitch_posterior
