@@ -26,8 +26,9 @@ classifiers = [
 dependencies = [
     "bilby",
     "bilby_pipe",
-    # "plotting_tools_for_pe",
-    "makefun"
+    "ptfp",
+    "makefun",
+    "jax"
 ]
 dynamic = ["version"]
 
