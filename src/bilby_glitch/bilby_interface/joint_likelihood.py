@@ -3,7 +3,6 @@ import copy
 import warnings
 import attr
 import numpy as np
-from traitlets import Bool
 from bilby.core.prior import Interped
 
 # warnings.simplefilter("ignore", np.ComplexWarning)

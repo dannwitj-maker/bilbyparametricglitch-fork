@@ -24,7 +24,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "bilby",
+    "bilby[gw]",
     "bilby_pipe",
     "ptfp",
     "makefun",

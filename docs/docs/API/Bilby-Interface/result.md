@@ -1,2 +1,2 @@
 # Bilby Glitch Result
-::: bilby_glitch.bilby_pipe_interface.result
+::: bilby_glitch.bilby_interface.result
