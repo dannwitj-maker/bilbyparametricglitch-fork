@@ -93,6 +93,7 @@ def get_all_analysis_components(
         data_case=case,
         data_analysis_input_class=data_analysis_input_class,
         parser_generator=parser_generator,
+        analysis_interferometers=analysis_ifos,
     )
     os.chdir(owd)
 
@@ -103,7 +104,7 @@ def get_all_analysis_components(
     likelihood_kwargs = dict(
         priors=copy.deepcopy(result.priors), distance_marginalization=False
     )
-    if joint:
+    if joint and hasattr(analysis, "joint_waveform_generators"):
         likelihood_class = JointGlitchGravitationalWaveTransient
         likelihood_args.append(analysis.joint_waveform_generators)
     else:

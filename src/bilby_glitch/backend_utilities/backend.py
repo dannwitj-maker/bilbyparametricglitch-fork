@@ -59,6 +59,7 @@ def _configure_jax(xp, scs):
 def _configure_numpy_and_scipy(xp, scs):
     scs.tukey = scs.signal.windows.tukey
     scs.cumulative_trapezoid = scs.integrate.cumulative_trapezoid
+    xp.typing = xp._typing
 
 
 def _load_numpy_and_scipy(backend):
