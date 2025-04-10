@@ -9,3 +9,4 @@ build/
 docs/_build/*
 docs/source/api/*
 dist/*
+*site*
