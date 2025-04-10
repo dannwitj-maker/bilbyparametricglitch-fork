@@ -1,2 +1,2 @@
 # Bilby Glitch Waveform Generator
-::: bilby_glitch.waveform_generator
+::: bilby_glitch.bilby_pipe_interface.waveform_generator
