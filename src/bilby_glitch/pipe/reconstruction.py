@@ -13,7 +13,7 @@ from ..bilby_interface.joint_likelihood import (
     GravitationalWaveTransient,
     JointGlitchGravitationalWaveTransient,
 )
-
+from ..bilby_interface.waveform_generator import GlitchWaveformGenerator
 from typing import Union, List, Tuple
 
 
@@ -106,7 +106,38 @@ def get_all_analysis_components(
     )
     if joint and hasattr(analysis, "joint_waveform_generators"):
         likelihood_class = JointGlitchGravitationalWaveTransient
-        likelihood_args.append(analysis.joint_waveform_generators)
+        glitch_generators = {}
+        for (
+            glitch_name,
+            autoformed_glitch_generator,
+        ) in analysis.joint_waveform_generators.items():
+            interferometer = autoformed_glitch_generator.waveform_arguments.pop(
+                "glitch_mode_name"
+            ).split("_")[1]
+            waveform_arguments = copy.deepcopy(
+                autoformed_glitch_generator.waveform_arguments
+            )
+            duration = waveform_arguments.pop("duration")
+            sampling_frequency = waveform_arguments.pop("sampling_frequency")
+            start_time = waveform_arguments.pop("start_time")
+            waveform_arguments.pop("time_array")
+            glitch_generator = GlitchWaveformGenerator(
+                glitch_name,
+                interferometer,
+                duration,
+                sampling_frequency,
+                direct_injection=True,
+                start_time=start_time,
+                parametric_frequency_domain_source_model=analysis.joint_waveform_generator_parametric_models[
+                    glitch_name
+                ],
+                waveform_arguments=waveform_arguments,
+            )
+            glitch_generator.waveform_arguments[
+                "glitch_mode_name"
+            ] = f"glitch_{interferometer}_{glitch_name}"
+            glitch_generators[glitch_name] = glitch_generator
+        likelihood_args.append(glitch_generators)
     else:
         likelihood_class = GravitationalWaveTransient
 
