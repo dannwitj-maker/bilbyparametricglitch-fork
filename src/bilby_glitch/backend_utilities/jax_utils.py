@@ -2,7 +2,6 @@
 
 from jax._src.numpy.lax_numpy import (
     util,
-    np,
     partial,
     jit,
     ArrayLike,

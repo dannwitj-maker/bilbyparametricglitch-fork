@@ -1,5 +1,4 @@
 import jax.typing as jnpt
-from functools import partial
 
 from .series_transforms import taper_off, taper_on
 
@@ -241,7 +240,7 @@ def wavelet_g_of_f_array(
     const = A * tau * xp.sqrt(xp.pi) / 2
     decay_term = xp.exp(-(tau**2) * xp.pi**2 * (f - sampling_parameters[0]) ** 2)
 
-    Q_decay_term = xp.exp(-sampling_parameters[2] ** 2 * f / sampling_parameters[0])
+    Q_decay_term = xp.exp(-(sampling_parameters[2] ** 2) * f / sampling_parameters[0])
     plus_term = xp.exp(-1j * (2 * xp.pi * time * f - sampling_parameters[4]))
     minus_term = xp.exp(-1j * (2 * xp.pi * time * f + sampling_parameters[4]))
 

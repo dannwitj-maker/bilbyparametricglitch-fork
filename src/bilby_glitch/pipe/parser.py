@@ -1,13 +1,7 @@
-import sys
-import configargparse
-
-import bilby
 import bilby_pipe
 
-from bilby_pipe.utils import get_version_information, nonestr, noneint, nonefloat
-from bilby_pipe.bilbyargparser import BilbyArgParser
+from bilby_pipe.utils import nonestr
 from bilby_pipe.parser import StoreBoolean
-from bilby_pipe.main import __doc__ as usage
 
 
 def glitch_create_parser(top_level=True):

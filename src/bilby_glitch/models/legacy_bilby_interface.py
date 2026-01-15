@@ -1,10 +1,8 @@
 import logging
 import numpy as np
-import copy
 from scipy.signal.windows import tukey
 from scipy.integrate import cumulative_trapezoid
 from bilby.core.utils import nfft
-from bilby.gw.detector import get_empty_interferometer
 from .parametric_glitch_models import (
     slow_scattering_shifting_modulation_f_of_t,
 )
@@ -779,9 +777,9 @@ def aux_informed(
         t = np.linspace(0, duration, duration * sampling_frequency)
 
     # The duration of the aux channel needs to match
-    assert (
-        aux_time_series.duration.value == duration
-    ), f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
+    assert aux_time_series.duration.value == duration, (
+        f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
+    )
     # Aux channels are probably sampled at less than our rate, so resample
     aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
     # Make goft
@@ -909,9 +907,9 @@ def aux_informed_amplitude_splines(
         interp_times = np.linspace(0, duration, kwargs["number_splines"])
 
     # The duration of the aux channel needs to match
-    assert (
-        aux_time_series.duration.value == duration
-    ), f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
+    assert aux_time_series.duration.value == duration, (
+        f"Witness data duration is {aux_time_series.duration.value}, but analysis duration is {duration}"
+    )
     # Aux channels are probably sampled at less than our rate, so resample
     aux_time_series_resampled = aux_time_series.copy().resample(sampling_frequency)
     # Make goft

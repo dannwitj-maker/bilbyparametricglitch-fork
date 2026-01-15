@@ -133,9 +133,9 @@ def get_all_analysis_components(
                 ],
                 waveform_arguments=waveform_arguments,
             )
-            glitch_generator.waveform_arguments[
-                "glitch_mode_name"
-            ] = f"glitch_{interferometer}_{glitch_name}"
+            glitch_generator.waveform_arguments["glitch_mode_name"] = (
+                f"glitch_{interferometer}_{glitch_name}"
+            )
             glitch_generators[glitch_name] = glitch_generator
         likelihood_args.append(glitch_generators)
     else:

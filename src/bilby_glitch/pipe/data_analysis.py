@@ -1,8 +1,4 @@
 import sys
-import numpy as np
-import os
-import time
-import signal
 
 import bilby
 
@@ -10,15 +6,8 @@ from bilby_pipe.utils import (
     parse_args,
     logger,
     log_version_information,
-    BilbyPipeError,
-    DataDump,
-    get_function_from_string_path,
-    CHECKPOINT_EXIT_CODE,
 )
 from bilby_pipe.data_analysis import (
-    create_analysis_parser,
-    _get_items_in_group,
-    sighandler,
     DataAnalysisInput,
 )
 
@@ -89,7 +78,7 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
                 return None
 
 
-def main():
+def glitch_bilby_pipe_analysis():
     """Data analysis main logic"""
     args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser(top_level=False))
     log_version_information()

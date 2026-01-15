@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import importlib
 import pandas as pd
@@ -13,8 +12,6 @@ from bilby_pipe.utils import (
     get_command_line_arguments,
     get_outdir_name,
     tcolors,
-    get_colored_string,
-    request_memory_generation_lookup,
 )
 from bilby_pipe.main import MainInput
 
@@ -181,7 +178,7 @@ def write_complete_config_file(parser, args, inputs, input_cls=GlitchMainInput):
         logger.info(f"To see full configuration, check {inputs.complete_ini_file}")
 
 
-def main():
+def glitch_bilby_pipe():
     """Top-level interface for bilby_pipe"""
     parser = glitch_create_parser(top_level=True)
     args, unknown_args = parse_args(get_command_line_arguments(), parser)
