@@ -1,10 +1,7 @@
 import logging
 import copy
-from bilby.gw.detector import get_empty_interferometer
 
 import numpy as np
-
-xp = np
 
 from ..models.parametric_glitch_models import (
     slow_scattering_g_of_f_array,
@@ -15,12 +12,13 @@ from ..models.parametric_glitch_models import (
 import inspect
 import makefun
 
-from typing import TYPE_CHECKING, Callable, Optional, List, Dict
+from typing import TYPE_CHECKING, Optional, Dict
 
 logger = logging.getLogger(__name__)
+xp = np
 
 if TYPE_CHECKING:
-    import gwpy
+    pass
 
 ################################################################################
 ################################################################################

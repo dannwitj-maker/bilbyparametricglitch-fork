@@ -1,25 +1,13 @@
 import sys
-import os
 import numpy as np
-import gwpy
-import lal
-import glob
 
 import bilby
 
-from bilby.gw.detector import PowerSpectralDensity, calibration
 
-from bilby_pipe.plotting_utils import plot_whitened_data, strain_spectrogram_plot
 from bilby_pipe.utils import (
     logger,
     parse_args,
     log_version_information,
-    get_version_information,
-    convert_string_to_dict,
-    BilbyPipeError,
-    is_a_power_of_2,
-    get_geocent_time_with_uncertainty,
-    DataDump,
 )
 from bilby_pipe.data_generation import DataGenerationInput
 
@@ -257,7 +245,7 @@ class GlitchDataGenerationInput(DataGenerationInput, GlitchInput):
                 )
 
 
-def main():
+def glitch_bilby_pipe_generation():
     """Data generation main logic"""
     args, unknown_args = parse_args(sys.argv[1:], glitch_create_parser(top_level=False))
     print(args)

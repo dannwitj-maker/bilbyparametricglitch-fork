@@ -3,7 +3,7 @@ import pandas as pd
 
 from gwpy.timeseries import TimeSeries
 
-from bilby.core.utils import logger, nfft
+from bilby.core.utils import logger
 from bilby.gw.waveform_generator import WaveformGenerator
 from bilby.gw.conversion import identity_map_conversion
 
@@ -27,16 +27,15 @@ class GlitchWaveformGenerator(WaveformGenerator):
         parameter_conversion=None,
         waveform_arguments={},
     ):
-
         waveform_arguments["duration"] = duration
         waveform_arguments["sampling_frequency"] = sampling_frequency
         waveform_arguments["start_time"] = start_time
         if direct_injection:
             waveform_arguments["glitch_mode_name"] = glitch_interferometer
         else:
-            waveform_arguments[
-                "glitch_mode_name"
-            ] = f"glitch_{glitch_interferometer}_{glitch_index_name}"
+            waveform_arguments["glitch_mode_name"] = (
+                f"glitch_{glitch_interferometer}_{glitch_index_name}"
+            )
         if parameter_conversion is None:
             parameter_conversion = identity_map_conversion
         if "aux_channel" in waveform_arguments:

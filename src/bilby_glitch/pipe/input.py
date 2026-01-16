@@ -1,6 +1,5 @@
 import os
 import inspect
-import copy
 
 from bilby_pipe.input import Input
 import bilby.gw.source
@@ -175,9 +174,9 @@ class GlitchInput(Input):
             self.joint_priors = dict()
             for index_name, prior_file in self.joint_prior_files.items():
                 # Do the above procedure, over each prior in the joint prior dict
-                assert (
-                    index_name in self.joint_prior_defaults
-                ), self.joint_prior_defaults
+                assert index_name in self.joint_prior_defaults, (
+                    self.joint_prior_defaults
+                )
                 prior_default = self.joint_prior_defaults[index_name]
                 if prior_default in self.combined_default_prior_dicts.keys():
                     prior_class = self.combined_default_prior_dicts[prior_default]
@@ -412,21 +411,21 @@ class GlitchInput(Input):
             parametric_models = {}
         for index_name, model_name in parametric_models.items():
             if model_name == "slow_scattering":
-                self._joint_waveform_generator_parametric_models[
-                    index_name
-                ] = slow_scattering_frequency_domain
+                self._joint_waveform_generator_parametric_models[index_name] = (
+                    slow_scattering_frequency_domain
+                )
             elif model_name == "single_wavelet":
-                self._joint_waveform_generator_parametric_models[
-                    index_name
-                ] = single_wavelet_frequency_domain
+                self._joint_waveform_generator_parametric_models[index_name] = (
+                    single_wavelet_frequency_domain
+                )
             elif model_name == "fast_scattering":
-                self._joint_waveform_generator_parametric_models[
-                    index_name
-                ] = fast_scattering_frequency_domain
+                self._joint_waveform_generator_parametric_models[index_name] = (
+                    fast_scattering_frequency_domain
+                )
             elif "." in model_name:
-                self._joint_waveform_generator_parametric_models[
-                    index_name
-                ] = get_function_from_string_path(model_name)
+                self._joint_waveform_generator_parametric_models[index_name] = (
+                    get_function_from_string_path(model_name)
+                )
         self._cleanup_joint_models()
 
     @joint_waveform_generator_source_models.setter
@@ -439,9 +438,9 @@ class GlitchInput(Input):
             source_models = {}
         for index_name, model_name in source_models.items():
             if "." in model_name:
-                self._joint_waveform_generator_source_models[
-                    index_name
-                ] = get_function_from_string_path(model_name)
+                self._joint_waveform_generator_source_models[index_name] = (
+                    get_function_from_string_path(model_name)
+                )
             else:
                 self._joint_waveform_generator_source_models[index_name] = None
         self._cleanup_joint_models()
@@ -553,9 +552,9 @@ class GlitchInput(Input):
                     f"Frequency domain source model is: {self.joint_injection_waveform_generator_source_models}"
                 )
 
-                self._joint_injection_waveform_generators[
-                    index_name
-                ] = waveform_generator
+                self._joint_injection_waveform_generators[index_name] = (
+                    waveform_generator
+                )
         return self._joint_injection_waveform_generators
 
     @joint_injection_waveform_generators.setter
@@ -634,13 +633,13 @@ class GlitchInput(Input):
             source_models = {}
         for index_name, model_name in source_models.items():
             if "." in model_name:
-                self._joint_injection_waveform_generator_source_models[
-                    index_name
-                ] = get_function_from_string_path(model_name)
+                self._joint_injection_waveform_generator_source_models[index_name] = (
+                    get_function_from_string_path(model_name)
+                )
             else:
-                self._joint_injection_waveform_generator_source_models[
-                    index_name
-                ] = None
+                self._joint_injection_waveform_generator_source_models[index_name] = (
+                    None
+                )
         self._cleanup_joint_injection_models()
 
     def _cleanup_joint_injection_models(self):

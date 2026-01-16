@@ -1,12 +1,8 @@
 import logging
 import copy
-import warnings
 import attr
 import numpy as np
 from bilby.core.prior import Interped
-
-# warnings.simplefilter("ignore", np.ComplexWarning)
-logger = logging.getLogger(__name__)
 
 from bilby.gw.likelihood.base import GravitationalWaveTransient
 from bilby.gw.detector import (
@@ -18,7 +14,10 @@ from bilby.gw.waveform_generator import WaveformGenerator
 from .bilby_interface import _blank_frequency_domain_source_model
 from .waveform_generator import GlitchWaveformGenerator
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Dict, Optional
+
+# warnings.simplefilter("ignore", np.ComplexWarning)
+logger = logging.getLogger(__name__)
 
 
 class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
@@ -103,28 +102,27 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
         reference_frame: Optional[str] = "sky",
         time_reference: Optional[str] = "geocenter",
     ):
-
         # For now, simplify by only applying distance marginalization
         # TODO if possible apply others (should be for e.g. time, shouldn't be for e.g. phase)
-        assert (
-            not time_marginalization
-        ), "Time marginalization is not presently supported."
-        assert (
-            not phase_marginalization
-        ), "Phase marginalization is not presently supported."
-        assert (
-            not calibration_marginalization
-        ), "Calibration marginalization is not presently supported."
+        assert not time_marginalization, (
+            "Time marginalization is not presently supported."
+        )
+        assert not phase_marginalization, (
+            "Phase marginalization is not presently supported."
+        )
+        assert not calibration_marginalization, (
+            "Calibration marginalization is not presently supported."
+        )
         if (
             cbc_waveform_generator.frequency_domain_source_model
             == _blank_frequency_domain_source_model
         ):
-            assert (
-                len(glitch_generators.keys()) != 0
-            ), "Cannot pass no CBC Waveform AND no glitches"
-        assert isinstance(
-            glitch_generators, dict
-        ), "glitch_generators should be a dict of glitch_name:glitch_generator"
+            assert len(glitch_generators.keys()) != 0, (
+                "Cannot pass no CBC Waveform AND no glitches"
+            )
+        assert isinstance(glitch_generators, dict), (
+            "glitch_generators should be a dict of glitch_name:glitch_generator"
+        )
         priors = self._set_glitch_geocent_priors(priors, glitch_generators)
         super(JointGlitchGravitationalWaveTransient, self).__init__(
             interferometers,
@@ -449,9 +447,9 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
                 priors[f"glitch_{glitch_name}_geocent_time"].name = "geocent_time"
                 priors[f"glitch_{glitch_name}_geocent_time"].latex_label = r"$t_{gc}$"
                 priors.pop(f"glitch_{glitch_name}_{ifo}_time")
-        assert (
-            f"glitch_{glitch_name}_geocent_time" in priors.keys()
-        ), "Must set a glitch time prior"
+        assert f"glitch_{glitch_name}_geocent_time" in priors.keys(), (
+            "Must set a glitch time prior"
+        )
         return priors
 
     def compute_log_likelihood_from_snrs(self, total_snrs):

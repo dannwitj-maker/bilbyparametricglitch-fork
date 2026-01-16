@@ -1,5 +1,4 @@
 from bilby.gw.result import CBCResult
-import bilby
 import os
 import numpy as np
 import pandas as pd
@@ -52,10 +51,10 @@ class JointCBCGlitchResult(CBCResult):
         """The arguments of the waveform generator for glitches modeled in this result"""
         glitch_waveform_generator_arguments = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_arguments[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_arguments"
+            glitch_waveform_generator_arguments[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_arguments"
+                )
             )
         return glitch_waveform_generator_arguments
 
@@ -64,10 +63,10 @@ class JointCBCGlitchResult(CBCResult):
         """The fd source model of the waveform generator for glitches modeled in this result"""
         glitch_waveform_generator_source_models = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_source_models[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_frequency_domain_source_model"
+            glitch_waveform_generator_source_models[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_frequency_domain_source_model"
+                )
             )
         return glitch_waveform_generator_source_models
 
@@ -76,10 +75,10 @@ class JointCBCGlitchResult(CBCResult):
         """The td source model of the waveform generator for glitches modeled in this result"""
         glitch_waveform_generator_source_models = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_source_models[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_time_domain_source_model"
+            glitch_waveform_generator_source_models[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_time_domain_source_model"
+                )
             )
         return glitch_waveform_generator_source_models
 
@@ -88,10 +87,10 @@ class JointCBCGlitchResult(CBCResult):
         """The parameter conversion functions of the waveform generators for glitches modeled in this result"""
         glitch_waveform_generator_parameter_conversions = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_parameter_conversions[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_parameter_conversion"
+            glitch_waveform_generator_parameter_conversions[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_parameter_conversion"
+                )
             )
         return glitch_waveform_generator_parameter_conversions
 
@@ -100,10 +99,10 @@ class JointCBCGlitchResult(CBCResult):
         """The sampling frequencies of the waveform generators for glitches modeled in this result"""
         glitch_waveform_generator_sampling_frequency = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_sampling_frequency[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_sampling_frequency"
+            glitch_waveform_generator_sampling_frequency[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_sampling_frequency"
+                )
             )
         return glitch_waveform_generator_sampling_frequency
 
@@ -122,10 +121,10 @@ class JointCBCGlitchResult(CBCResult):
         """The sampling frequency of the waveform generators for glitches modeled in this result"""
         glitch_waveform_generator_start_time = dict()
         for name in self.glitch_names:
-            glitch_waveform_generator_start_time[
-                name
-            ] = self.__get_from_nested_meta_data(
-                "likelihood", f"{name}_generator_start_time"
+            glitch_waveform_generator_start_time[name] = (
+                self.__get_from_nested_meta_data(
+                    "likelihood", f"{name}_generator_start_time"
+                )
             )
         return glitch_waveform_generator_start_time
 
@@ -643,14 +642,15 @@ class JointCBCGlitchResult(CBCResult):
             injection_glitch_parameters_of_interest["dec"] = 0
             injection_glitch_parameters_of_interest["psi"] = 0
 
-            injection_glitch_parameters_of_interest[
-                "geocent_time"
-            ] = injection_glitch_parameters_of_interest[
-                f"{interferometer.name}_time"
-            ] - interferometer.time_delay_from_geocenter(
-                0,
-                0,
-                injection_glitch_parameters_of_interest[f"{interferometer.name}_time"],
+            injection_glitch_parameters_of_interest["geocent_time"] = (
+                injection_glitch_parameters_of_interest[f"{interferometer.name}_time"]
+                - interferometer.time_delay_from_geocenter(
+                    0,
+                    0,
+                    injection_glitch_parameters_of_interest[
+                        f"{interferometer.name}_time"
+                    ],
+                )
             )
 
             try:

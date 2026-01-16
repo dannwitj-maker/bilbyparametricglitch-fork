@@ -2,7 +2,6 @@ import sys
 import os
 import pandas as pd
 import numpy as np
-import json
 
 import bilby
 from bilby_pipe.utils import (
@@ -41,7 +40,6 @@ class GlitchInjectionCreator(InjectionCreator, GlitchInput):
         joint_prior_defaults=None,
         injection_is_joint=False,
     ):
-
         self.injection_is_joint = injection_is_joint
         self.likelihood_is_joint = injection_is_joint
         self.joint_prior_files = joint_prior_files
@@ -190,7 +188,7 @@ def glitch_create_injection_file(
     injection_creator.generate_injection_file(filename, extension)
 
 
-def main():
+def glitch_bilby_pipe_create_injection_file():
     """Driver to create an injection file"""
     args, unknown_args = parse_args(sys.argv[1:], create_parser())
 
