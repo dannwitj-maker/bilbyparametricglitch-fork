@@ -1,15 +1,10 @@
 """Methods which are useful for jax but not implemented for whatever reason"""
 
-from jax._src.numpy.lax_numpy import (
-    util,
-    partial,
-    jit,
-    ArrayLike,
-    Array,
-    asarray,
-    diff,
-    moveaxis,
-)
+from jax._src import api
+from jax._src.typing import Array, ArrayLike, DType, DTypeLike
+from jax._src.numpy.util import (
+    _broadcast_to, ensure_arraylike,
+    promote_dtypes_inexact, promote_dtypes_numeric, _where)
 import jax.numpy as jnp
 import jax.typing as jnpt
 import jax
@@ -17,7 +12,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 
-@partial(jit, static_argnames=("axis", "initial"))
+@api.jit(static_argnames=("axis", "initial"))
 def cumulative_trapezoid(
     y: ArrayLike,
     x: ArrayLike | None = None,
@@ -30,17 +25,17 @@ def cumulative_trapezoid(
     """
     dx_array: Array
     if x is None:
-        util.check_arraylike("trapezoid", y)
-        (y_arr,) = util.promote_dtypes_inexact(y)
-        dx_array = asarray(dx)
+        ensure_arraylike("trapezoid", y)
+        (y_arr,) = promote_dtypes_inexact(y)
+        dx_array = jnp.asarray(dx)
     else:
-        util.check_arraylike("trapezoid", y, x)
-        y_arr, x_arr = util.promote_dtypes_inexact(y, x)
+        ensure_arraylike("trapezoid", y, x)
+        y_arr, x_arr = promote_dtypes_inexact(y, x)
         if x_arr.ndim == 1:
-            dx_array = diff(x_arr)
+            dx_array = jnp.diff(x_arr)
         else:
-            dx_array = moveaxis(diff(x_arr, axis=axis), axis, -1)
-    y_arr = moveaxis(y_arr, axis, -1)
+            dx_array = jnp.moveaxis(jnp.diff(x_arr, axis=axis), axis, -1)
+    y_arr = jnp.moveaxis(y_arr, axis, -1)
     res = 0.5 * (dx_array * (y_arr[..., 1:] + y_arr[..., :-1])).cumsum(-1)
     if initial is None:
         return res
@@ -48,7 +43,7 @@ def cumulative_trapezoid(
         return jnp.concat([jnp.array([initial]), res], axis=0)
 
 
-@partial(jax.jit, static_argnames=("M", "alpha"))
+@api.jit(static_argnames=("M", "alpha"))
 def tukey(M, alpha=0.5):
     """Return a Tukey window, also known as a tapered cosine window.
     This snippet is copied from symjax
