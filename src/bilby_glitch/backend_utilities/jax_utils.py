@@ -1,10 +1,8 @@
 """Methods which are useful for jax but not implemented for whatever reason"""
 
 from jax._src import api
-from jax._src.typing import Array, ArrayLike, DType, DTypeLike
-from jax._src.numpy.util import (
-    _broadcast_to, ensure_arraylike,
-    promote_dtypes_inexact, promote_dtypes_numeric, _where)
+from jax._src.typing import Array, ArrayLike
+from jax._src.numpy.util import ensure_arraylike, promote_dtypes_inexact
 import jax.numpy as jnp
 import jax.typing as jnpt
 import jax
