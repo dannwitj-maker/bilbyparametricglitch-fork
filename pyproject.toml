@@ -47,7 +47,7 @@ version = {attr = "bilby_glitch._version.__version__"}
 
 [project.entry-points."bilby_glitch.xp"]
 bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"
-bilby_glitch_bilby_interface = "bilby_glitch.models.bilby_interface"
+bilby_glitch_bilby_interface = "bilby_glitch.bilby_interface.bilby_interface"
 
 [project.entry-points."bilby_glitch.scs"]
 bilby_glitch_parametric_models = "bilby_glitch.models.parametric_glitch_models"
