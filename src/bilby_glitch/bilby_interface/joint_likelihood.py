@@ -47,6 +47,14 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
         complex_matched_filter_gw_snr = attr.ib(default=0j, converter=complex)
         complex_matched_filter_glitch_snr = attr.ib(default=0j, converter=complex)
 
+        @property
+        def complex_matched_filter_snr(self):
+            return self.complex_matched_filter_gw_snr
+
+        @property
+        def optimal_snr_squared(self):
+            return self.optimal_gw_snr_squared
+
         d_inner_h_array = attr.ib(default=None)
         d_inner_g_array = attr.ib(default=None)
         g_inner_h_array = attr.ib(default=None)
@@ -155,7 +163,9 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
             )
         )
 
-    def log_likelihood_ratio(self):
+    def log_likelihood_ratio(self, parameters=None):
+        if parameters is not None:
+            self.parameters.update(parameters)
         waveform_polarizations = dict()
         # assert self.glitch_generators != dict(), "At least one glitch generator\
         #     should be passed, else why are you using this?"
@@ -314,8 +324,10 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
         return d_inner_h, g_inner_h, h_inner_h, d_inner_g, g_inner_g
 
     def calculate_snrs(
-        self, waveform_polarizations, interferometer: Interferometer, return_array=True
+        self, waveform_polarizations, interferometer: Interferometer, return_array=True, parameters=None
     ):
+        if parameters is not None:
+            self.parameters.update(parameters)
         """
         Compute the snrs
 
@@ -452,7 +464,7 @@ class JointGlitchGravitationalWaveTransient(GravitationalWaveTransient):
         )
         return priors
 
-    def compute_log_likelihood_from_snrs(self, total_snrs):
+    def compute_log_likelihood_from_snrs(self, total_snrs, parameters=None):
         if self.distance_marginalization:
             log_l = self.distance_marginalized_likelihood(
                 d_inner_h=total_snrs.d_inner_h,

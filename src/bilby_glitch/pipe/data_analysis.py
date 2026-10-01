@@ -29,7 +29,19 @@ class GlitchDataAnalysisInput(DataAnalysisInput, GlitchInput):
 
     """
 
+    @property
+    def data_dump_file(self):
+        if hasattr(self, "_data_dump_file") and self._data_dump_file:
+            return self._data_dump_file
+        return super().data_dump_file
+
+    @data_dump_file.setter
+    def data_dump_file(self, value):
+        self._data_dump_file = value
+
     def __init__(self, args, unknown_args, test=False):
+        if hasattr(args, "data_dump_file") and args.data_dump_file:
+            self._data_dump_file = args.data_dump_file
         DataAnalysisInput.__init__(self, args, unknown_args)
 
         self.extra_waveform_generator_kwargs = args.extra_waveform_generator_kwargs

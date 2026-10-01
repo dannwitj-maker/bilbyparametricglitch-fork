@@ -6,11 +6,12 @@ from jax._src.numpy.util import ensure_arraylike, promote_dtypes_inexact
 import jax.numpy as jnp
 import jax.typing as jnpt
 import jax
+from functools import partial
 
 jax.config.update("jax_enable_x64", True)
 
 
-@api.jit(static_argnames=("axis", "initial"))
+@partial(api.jit, static_argnames=("axis", "initial"))
 def cumulative_trapezoid(
     y: ArrayLike,
     x: ArrayLike | None = None,
@@ -41,7 +42,7 @@ def cumulative_trapezoid(
         return jnp.concat([jnp.array([initial]), res], axis=0)
 
 
-@api.jit(static_argnames=("M", "alpha"))
+@partial(api.jit, static_argnames=("M", "alpha"))
 def tukey(M, alpha=0.5):
     """Return a Tukey window, also known as a tapered cosine window.
     This snippet is copied from symjax
